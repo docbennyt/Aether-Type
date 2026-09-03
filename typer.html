@@ -1,0 +1,2364 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="author" content="Dr BennyT">
+<meta name="description" content="AETHER TYPE is a browser-based typing action game by Dr BennyT.">
+<title>AETHER TYPE</title>
+<style>
+/* ===== RESET & BASE ===== */
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#050505;
+  font-family:'JetBrains Mono','SF Mono','Cascadia Code',Consolas,'Courier New',monospace;
+  color:#e0e0e0;user-select:none;-webkit-user-select:none;cursor:default}
+canvas#gc{display:block;position:fixed;top:0;left:0;width:100%;height:100%;z-index:0}
+
+/* ===== OVERLAYS ===== */
+.ov{position:fixed;top:0;left:0;width:100%;height:100%;display:none;
+  flex-direction:column;align-items:center;justify-content:center;z-index:10;
+  background:rgba(5,5,5,0.93)}
+.ov.show{display:flex}
+
+/* ===== BUTTONS ===== */
+.btn{background:transparent;border:1px solid #00ffff;color:#00ffff;
+  padding:10px 32px;margin:6px;font-family:inherit;font-size:14px;
+  cursor:pointer;letter-spacing:2px;text-transform:uppercase;
+  transition:all .2s;outline:none;min-width:200px}
+.btn:hover,.btn:focus{background:#00ffff22;box-shadow:0 0 20px #00ffff44;transform:scale(1.03)}
+.btn.nav-active{background:#00ffff22;box-shadow:0 0 20px #00ffff44;transform:scale(1.03)}
+.btn.secondary{border-color:#ff00ff;color:#ff00ff}
+.btn.secondary:hover,.btn.secondary:focus{background:#ff00ff22;box-shadow:0 0 20px #ff00ff44}
+.btn.secondary.nav-active{background:#ff00ff22;box-shadow:0 0 20px #ff00ff44}
+
+/* ===== MENU ===== */
+#menuTitle{font-size:clamp(36px,8vw,72px);font-weight:900;letter-spacing:8px;
+  background:linear-gradient(135deg,#00ffff,#ff00ff,#4466ff);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;text-shadow:none;margin-bottom:8px;
+  animation:titlePulse 3s ease-in-out infinite,titleFlicker 6s step-end infinite;
+  position:relative}
+#menuTitle::after{content:'';position:absolute;top:0;left:-10%;width:120%;height:100%;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,255,0.03) 2px,rgba(0,255,255,0.03) 4px);
+  pointer-events:none;animation:scanMove 4s linear infinite}
+#menuSubtitle{font-size:12px;color:#666;letter-spacing:6px;margin-bottom:40px}
+.menu-stats{margin-top:30px;font-size:12px;color:#555;text-align:center;line-height:1.8}
+.menu-stats span{color:#00ffff}
+.menu-hint,.screen-hint{margin-top:14px;font-size:11px;color:#6c7f90;letter-spacing:2px;text-align:center}
+
+@keyframes titlePulse{0%,100%{filter:brightness(1) drop-shadow(0 0 10px #00ffff66)}
+  50%{filter:brightness(1.2) drop-shadow(0 0 30px #ff00ff88)}}
+@keyframes titleFlicker{0%,100%{opacity:1}92%{opacity:1}93%{opacity:.7}94%{opacity:1}96%{opacity:.85}97%{opacity:1}}
+@keyframes scanMove{0%{transform:translateY(-50%)}100%{transform:translateY(50%)}}
+
+/* ===== HUD ===== */
+#hud{position:fixed;top:0;left:0;width:100%;height:100%;z-index:5;
+  pointer-events:none;display:none;font-size:13px;letter-spacing:1px}
+#hud.show{display:block}
+.hud-tl{position:absolute;top:16px;left:20px}
+.hud-tr{position:absolute;top:16px;right:20px;text-align:right}
+.hud-bl{position:absolute;bottom:16px;left:20px}
+.hud-br{position:absolute;bottom:16px;right:20px;text-align:right}
+.hud-label{color:#555;font-size:10px;letter-spacing:2px}
+.hud-value{color:#00ffff;font-size:16px;font-weight:bold}
+.hud-mult{font-size:28px;font-weight:900}
+.hud-mult.x2{color:#00ffff;text-shadow:0 0 10px #00ffff}
+.hud-mult.x3{color:#ff00ff;text-shadow:0 0 15px #ff00ff}
+.hud-mult.x5{color:#ffcc00;text-shadow:0 0 20px #ffcc00,0 0 40px #ff660088}
+#hudShields span{font-size:18px;margin-left:2px}
+.shield-on{color:#00ffff;text-shadow:0 0 8px #00ffff}
+.shield-off{color:#333}
+#hudBoss{position:absolute;top:50px;left:50%;transform:translateX(-50%);text-align:center}
+#bossBar{width:300px;height:4px;background:#222;margin-top:4px;border-radius:2px}
+#bossBarFill{height:100%;background:linear-gradient(90deg,#ff00ff,#00ffff);border-radius:2px;transition:width .1s}
+#muteBtn{position:absolute;bottom:16px;right:20px;pointer-events:auto;
+  background:none;border:1px solid #333;color:#555;padding:4px 8px;
+  font-family:inherit;font-size:11px;cursor:pointer}
+#muteBtn:hover{border-color:#00ffff;color:#00ffff}
+#recoveryHint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  font-size:11px;color:#4466ff;letter-spacing:4px;display:none;
+  text-shadow:0 0 10px #4466ff}
+#hyperHint{position:absolute;top:92px;left:50%;transform:translateX(-50%);
+  padding:8px 14px;border:1px solid rgba(255,204,0,0.4);
+  background:rgba(18,16,4,0.82);color:#ffdc70;font-size:11px;letter-spacing:2px;
+  display:none;text-transform:uppercase;box-shadow:0 0 24px rgba(255,204,0,0.08)}
+
+/* ===== GAME OVER / ANALYTICS ===== */
+.go-title{font-size:28px;font-weight:900;letter-spacing:4px;margin-bottom:20px}
+.go-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;margin:16px 0;text-align:left}
+.go-stat-label{color:#555;font-size:11px;letter-spacing:1px}
+.go-stat-value{color:#00ffff;font-size:18px;font-weight:bold}
+.go-rating{margin:12px 0;font-size:14px}
+.go-rating .delta-pos{color:#00ff88}
+.go-rating .delta-neg{color:#ff4444}
+.heatmap-title{font-size:12px;color:#666;letter-spacing:2px;margin:16px 0 8px}
+#sparkline{display:block;margin:8px auto}
+.kb-row{display:flex;justify-content:center;gap:4px;margin:3px 0}
+.kb-key{width:30px;height:30px;display:flex;align-items:center;justify-content:center;
+  border-radius:4px;font-size:11px;font-weight:bold;border:1px solid}
+.weak-list{font-size:12px;color:#ff00ff;margin:8px 0;letter-spacing:1px}
+.btn-row{display:flex;gap:8px;margin-top:20px}
+.about-card{max-width:680px;padding:28px 30px;border:1px solid #1d3348;
+  background:linear-gradient(180deg,rgba(5,14,20,0.94),rgba(4,8,14,0.96));
+  box-shadow:0 0 40px rgba(0,255,255,0.08),inset 0 0 0 1px rgba(255,255,255,0.03)}
+.about-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 24px;margin:20px 0}
+.about-label{font-size:10px;color:#5f7790;letter-spacing:2px;text-transform:uppercase}
+.about-copy{font-size:13px;line-height:1.8;color:#c6d9e8}
+.about-copy strong{color:#00ffff}
+.pause-card{min-width:min(90vw,520px);padding:28px;border:1px solid #173245;
+  background:linear-gradient(180deg,rgba(6,12,18,0.96),rgba(4,8,14,0.98));
+  box-shadow:0 22px 60px rgba(0,0,0,0.35),0 0 40px rgba(0,255,255,0.05)}
+.quick-switch{margin:18px 0 10px;padding:18px;border:1px solid rgba(255,255,255,0.05);
+  background:rgba(10,18,26,0.76)}
+.switch-label{font-size:10px;color:#6a8498;letter-spacing:3px;text-transform:uppercase}
+.switch-row{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:12px}
+.switch-btn{min-width:48px;padding:10px 0;border:1px solid #2c4a60;background:transparent;
+  color:#cfe8ff;font:inherit;font-size:18px;cursor:pointer;transition:all .18s}
+.switch-btn:hover,.switch-btn:focus{border-color:#00ffff;color:#00ffff;box-shadow:0 0 20px rgba(0,255,255,0.14)}
+.switch-readout{min-width:220px;padding:12px 16px;border:1px solid rgba(0,255,255,0.18);
+  background:rgba(0,255,255,0.05);text-align:center}
+.switch-title{font-size:17px;font-weight:bold;color:#f3fbff;letter-spacing:2px}
+.switch-copy{font-size:11px;color:#7fa0b6;letter-spacing:1px;margin-top:6px}
+.pause-tip{margin-top:10px;font-size:11px;color:#70889b;letter-spacing:1px;text-align:center}
+
+/* ===== MOBILE WARNING ===== */
+#mobileWarn{z-index:100;background:#050505}
+#mobileWarn h2{font-size:24px;letter-spacing:4px;
+  background:linear-gradient(135deg,#00ffff,#ff00ff);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+#mobileWarn p{color:#555;font-size:13px;margin-top:12px;max-width:280px;text-align:center;line-height:1.6}
+@media(max-width:699px){
+  #mobileWarn{display:flex!important}
+  .ov:not(#mobileWarn){display:none!important}
+  #hud{display:none!important}
+}
+
+/* ===== SCROLLBAR HIDE ===== */
+::-webkit-scrollbar{display:none}
+.analytics-scroll{max-height:80vh;overflow-y:auto;padding:0 20px}
+</style>
+</head>
+<body>
+
+<!-- Canvas -->
+<canvas id="gc"></canvas>
+
+<!-- HUD -->
+<div id="hud">
+  <div class="hud-tl">
+    <div class="hud-label">SCORE</div>
+    <div class="hud-value" id="hScore">0</div>
+    <div style="margin-top:8px"><span class="hud-label">SHIELDS </span><span id="hudShields"></span></div>
+  </div>
+  <div class="hud-tr">
+    <div class="hud-label">WPM</div>
+    <div class="hud-value" id="hWpm">0</div>
+    <div style="margin-top:4px" class="hud-label">ACC</div>
+    <div class="hud-value" id="hAcc">100%</div>
+  </div>
+  <div class="hud-bl">
+    <div class="hud-label">FLOW</div>
+    <div class="hud-value hud-mult" id="hMult">&times;1</div>
+  </div>
+  <div id="hudBoss" style="display:none">
+    <div class="hud-label" id="bossLabel">BOSS</div>
+    <div id="bossBar"><div id="bossBarFill" style="width:0%"></div></div>
+  </div>
+  <button id="muteBtn" onclick="toggleMute()">SOUND: ON</button>
+  <div id="recoveryHint">RECOVERY WINDOW</div>
+  <div id="hyperHint">TAB: HYPERDRIVE BOOST</div>
+</div>
+
+<!-- Menu Screen -->
+<div id="menuScreen" class="ov show">
+  <div id="menuTitle">AETHER TYPE</div>
+  <div id="menuSubtitle">TYPE TO SURVIVE</div>
+  <button class="btn" id="btnStart" autofocus>MISSION START</button>
+  <button class="btn" id="btnZen">ZEN MODE</button>
+  <button class="btn secondary" id="btnAnalytics">ANALYTICS</button>
+  <button class="btn secondary" id="btnAbout">ABOUT</button>
+  <div class="menu-stats" id="menuStats"></div>
+  <div class="menu-hint">ARROWS TO MOVE • ENTER TO SELECT • ESC TO BACK OUT</div>
+</div>
+
+<!-- Pause Overlay -->
+<div id="pauseOv" class="ov">
+  <div class="pause-card">
+    <div class="go-title" style="color:#00ffff;text-align:center">PAUSED</div>
+    <div class="quick-switch">
+      <div class="switch-label">Match Pace</div>
+      <div class="switch-row">
+        <button class="switch-btn" id="btnDiffDown" aria-label="Lower difficulty">&lsaquo;</button>
+        <div class="switch-readout">
+          <div class="switch-title" id="pauseDiffName">PILOT</div>
+          <div class="switch-copy" id="pauseDiffCopy">Balanced speed and clean escalation.</div>
+        </div>
+        <button class="switch-btn" id="btnDiffUp" aria-label="Raise difficulty">&rsaquo;</button>
+      </div>
+      <div class="pause-tip">Left / Right changes difficulty instantly for this run and future starts.</div>
+    </div>
+    <div class="btn-row" style="justify-content:center">
+      <button class="btn" id="btnResume">RESUME</button>
+      <button class="btn secondary" id="btnQuit">QUIT TO MENU</button>
+    </div>
+    <div class="screen-hint">UP / DOWN TO NAVIGATE • LEFT / RIGHT TO CHANGE PACE • ENTER TO CONFIRM</div>
+  </div>
+</div>
+
+<!-- Game Over Screen -->
+<div id="goScreen" class="ov">
+  <div class="go-title" id="goTitle">RUN ENDED</div>
+  <div class="go-stats" id="goStats"></div>
+  <div class="go-rating" id="goRating"></div>
+  <canvas id="sparkline" width="260" height="60"></canvas>
+  <div class="heatmap-title">KEYBOARD HEATMAP</div>
+  <div id="goHeatmap"></div>
+  <div class="weak-list" id="goWeak"></div>
+  <div class="btn-row">
+    <button class="btn" id="btnRetry">RETRY</button>
+    <button class="btn secondary" id="btnGoMenu">MENU</button>
+  </div>
+  <div class="screen-hint">UP / DOWN TO NAVIGATE • ENTER TO SELECT • ESC TO MENU</div>
+</div>
+
+<!-- Analytics Screen -->
+<div id="analyticsScreen" class="ov">
+  <div class="analytics-scroll">
+    <div class="go-title" style="color:#ff00ff">ANALYTICS</div>
+    <div class="go-stats" id="anaStats"></div>
+    <div class="heatmap-title">LIFETIME KEYBOARD HEATMAP</div>
+    <div id="anaHeatmap"></div>
+    <div class="weak-list" id="anaWeak"></div>
+    <div class="btn-row" style="justify-content:center">
+      <button class="btn" id="btnAnaReset" style="font-size:11px;min-width:120px;border-color:#ff4444;color:#ff4444">RESET STATS</button>
+      <button class="btn secondary" id="btnAnaBack">BACK</button>
+    </div>
+    <div class="screen-hint">UP / DOWN TO NAVIGATE • ENTER TO SELECT • ESC TO MENU</div>
+  </div>
+</div>
+
+<!-- About Screen -->
+<div id="aboutScreen" class="ov">
+  <div class="about-card">
+    <div class="go-title" style="color:#00ffff">ABOUT AETHER TYPE</div>
+    <div class="about-copy">
+      AETHER TYPE is a fast, single-file browser typing game built to turn keyboard practice into an arcade loop with readable pressure, quick recovery, and replayable flow.
+    </div>
+    <div class="about-grid">
+      <div>
+        <div class="about-label">Author</div>
+        <div class="about-copy"><strong>Dr BennyT</strong></div>
+      </div>
+      <div>
+        <div class="about-label">Format</div>
+        <div class="about-copy">Offline HTML game prototype designed to scale into a larger project structure.</div>
+      </div>
+      <div>
+        <div class="about-label">Core Loop</div>
+        <div class="about-copy">See target, type cleanly, break pressure waves, and survive long enough for the system to push back.</div>
+      </div>
+      <div>
+        <div class="about-label">Controls</div>
+        <div class="about-copy">Type letters to attack, <strong>Escape</strong> to pause, <strong>F8</strong> to mute, and <strong>Tab</strong> for an early hyperdrive boost when unlocked.</div>
+      </div>
+    </div>
+    <div class="btn-row" style="justify-content:center">
+      <button class="btn secondary" id="btnAboutBack">BACK</button>
+    </div>
+    <div class="screen-hint">ENTER TO GO BACK • ESC TO MENU</div>
+  </div>
+</div>
+
+<!-- Mobile Warning -->
+<div id="mobileWarn" class="ov" style="display:none">
+  <h2>AETHER TYPE</h2>
+  <p>requires a physical keyboard &mdash; open on desktop</p>
+</div>
+
+<script>
+/* ================================================================
+   AETHER TYPE â Premium Typing Shoot-'em-up
+   Single-file, zero dependencies, fully offline
+   ================================================================ */
+'use strict';
+
+/* ===== CONSTANTS ===== */
+const CYAN='#00ffff',MAGENTA='#ff00ff',BLUE='#4466ff',WHITE='#e0e0e0',
+      RED='#ff3333',YELLOW='#ffcc00',BG='#050505';
+const PLAYER_Y_OFF=70,MAX_PARTICLES=600,MAX_STARS=200,
+      SPAWN_BASE=2.8,DESCENT_BASE=38,SHIELD_MAX=3,BOSS_EVERY=25,
+      HUD_REFRESH_MS=90,LIVE_WPM_WINDOW_MS=12000,
+      HYPERDRIVE_WINDOW_MS=5000,HYPERDRIVE_SCORE_GATE=5000,
+      RECENT_WORD_WINDOW=25,RECENT_FAMILY_WINDOW=8,RECENT_BOSS_WINDOW=6,
+      REVIEW_DELAY_MIN=30,REVIEW_DELAY_MAX=60,DEV_MODE=false;
+const SHAPE_LIST=['tri','dia','hex','ast'];
+const SHAPE_SIDES={tri:3,dia:4,hex:6,ast:7};
+const SHAPE_COLORS=[CYAN,MAGENTA,BLUE,'#ff8800'];
+const DIFFICULTY_ORDER=['rookie','pilot','ace','hyper'];
+const DIFFICULTY_PRESETS={
+  rookie:{label:'ROOKIE',copy:'Longer breathing room and a slower warm-up.',spawnBase:2.8,spawnMin:1.18,descentBase:28,bossSpeed:0.28,progression:0.09,adapt:0.1,hyperSkip:35},
+  pilot:{label:'PILOT',copy:'Balanced speed and clean escalation.',spawnBase:1.4,spawnMin:0.56,descentBase:58,bossSpeed:0.38,progression:0.24,adapt:0.18,hyperSkip:70},
+  ace:{label:'ACE',copy:'Heavy traffic, shorter gaps, faster drops.',spawnBase:1.08,spawnMin:0.42,descentBase:70,bossSpeed:0.42,progression:0.3,adapt:0.2,hyperSkip:95},
+  hyper:{label:'HYPER',copy:'Relentless pressure almost immediately.',spawnBase:0.88,spawnMin:0.34,descentBase:82,bossSpeed:0.46,progression:0.36,adapt:0.22,hyperSkip:120},
+};
+const DOMAIN_KEYS=['mixed','general','computer_science','software_engineering','cybersecurity','business_technopreneurship','code'];
+
+/* ===== WORD DICTIONARY (~380 words) ===== */
+const WORDS_RAW=[
+  'the','and','for','are','but','not','you','all','can','had',
+  'her','was','one','our','out','day','get','has','him','his',
+  'how','its','may','new','now','old','see','way','who','did',
+  'let','say','she','too','use','big','end','far','few','run',
+  'set','try','ask','men','put','top','red','yet','ago','came',
+  'done','give','good','have','help','here','high','home','just','keep',
+  'know','last','long','look','made','make','more','most','much','must',
+  'name','need','next','only','open','over','part','read','real','right',
+  'same','show','side','small','take','tell','than','them','then','turn',
+  'very','want','well','work','year','also','back','been','call','come',
+  'each','find','first','from','hand','into','life','like','line','live',
+  'move','near','play','still','such','sure','think','time','upon','used',
+  'with','word','world','after','being','bring','could','every','great','house',
+  'large','learn','never','other','place','point','shall','since','sound','stand',
+  'start','story','study','these','thing','three','under','water','where','which',
+  'while','about','above','function','async','await','lambda','pointer','boolean','integer',
+  'string','array','object','class','return','import','export','const','static','interface',
+  'promise','callback','render','debug','compile','syntax','binary','module','server','query',
+  'parse','stack','queue','struct','buffer','socket','thread','mutex','kernel','pixel',
+  'vector','matrix','algorithm','recursive','iterator','abstract','virtual','public','private','method',
+  'variable','console','deploy','docker','cloud','cache','proxy','router','schema','token',
+  'hash','crypto','script','runtime','config','error','yield','switch','default','break',
+  'float','double','null','void','enum','super','throw','catch','final','loop',
+  'node','type','data','code','byte','char','sort','true','false','index',
+  'slice','push','filter','reduce','state','props','fetch','route','scope','event',
+  'input','value','output','react','redux','webpack','typescript','python','golang','github',
+  'linux','memory','process','signal','daemon','branch','merge','commit','remote','nebula',
+  'quantum','ion','warp','cryo','plasma','singularity','photon','neutron','quasar','pulsar',
+  'hyperdrive','antimatter','tachyon','fusion','fission','android','cyborg','hologram','terraform','asteroid',
+  'comet','galaxy','cosmos','stellar','orbital','reactor','laser','phaser','shield','vortex',
+  'nexus','prism','flux','surge','spark','pulse','beam','core','grid','zone',
+  'arc','rift','nova','echo','sync','flow','glow','drift','scan','hack',
+  'link','mesh','wave','zero','apex','axis','bolt','cell','dark','deep',
+  'edge','fade','gate','haze','neon','omni','peak','tech','ultra','vast',
+  'xeno','zeta','aeon','bios','chip','emit','form','gene','helm','iris',
+  'jump','kilo','lens','meta','nano','opus','silo','tier','unit','vibe',
+  'watt','aura','crux','dome','etch','fury','grip','halo','icon','cipher',
+  'protocol','entropy','polarity','spectrum','dynamo','vertex','helix','orbit','stasis','zenith',
+  'phase','relay','forge','omega','sigma','theta','delta','gamma','alpha','beta',
+  'quark','meson','boson','gluon','lepton','hadron','baryon','muon','pion','kaon',
+  'authentication','authorization','integrity','confidentiality','availability','credential','certificate','privilege','incident','malware',
+  'phishing','forensics','firewall','mitigation','compliance','cybersecurity','entrepreneurship','stakeholder','retention','acquisition',
+  'scalability','validation','prototype','investment','operations','versioning','deployment','repository','refactor','middleware',
+  'algorithmic','polymorphism','inheritance','concurrency','documentation','debugging','maintainability','observability','throughput','latency'
+];
+
+const BOSS_LIBRARY_RAW={
+  general:[
+    {text:'focus survives longer than panic',tier:1,family:'focus'},
+    {text:'calm hands protect your rhythm',tier:1,family:'rhythm'},
+    {text:'pressure rises but clarity matters',tier:2,family:'clarity'},
+    {text:'steady timing defeats noisy motion',tier:2,family:'timing'},
+    {text:'discipline turns speed into control',tier:2,family:'discipline'},
+    {text:'precision before panic before collapse',tier:3,family:'precision'},
+    {text:'recovery begins with the next key',tier:3,family:'recovery'},
+    {text:'read the field before chasing points',tier:3,family:'reading'},
+    {text:'a clean streak changes the whole run',tier:4,family:'streak'},
+    {text:'mistakes only win when rhythm breaks',tier:4,family:'mistakes'},
+    {text:'survival rewards foresight under pressure',tier:4,family:'survival'},
+    {text:'composure is a weapon when chaos accelerates',tier:5,family:'composure'},
+    {text:'timing improves when attention stays quiet',tier:3,family:'timing'},
+    {text:'every wave asks for cleaner decisions',tier:4,family:'decisions'},
+    {text:'control outlasts panic when the screen tightens',tier:5,family:'control'},
+  ],
+  computer_science:[
+    {text:'binary choices still require careful logic',tier:1,family:'logic'},
+    {text:'a queue processes items in sequence',tier:1,family:'queue'},
+    {text:'a stack reveals the most recent frame',tier:2,family:'stack'},
+    {text:'recursion requires a terminating condition',tier:2,family:'recursion'},
+    {text:'graphs reveal structure across connected nodes',tier:2,family:'graph'},
+    {text:'memory locality rewards thoughtful layout',tier:3,family:'memory'},
+    {text:'algorithms trade time for space and clarity',tier:3,family:'algorithm'},
+    {text:'concurrency punishes careless shared state',tier:3,family:'concurrency'},
+    {text:'hash functions compress lookup uncertainty',tier:4,family:'hash'},
+    {text:'data structures shape the cost of thinking',tier:4,family:'structures'},
+    {text:'abstraction helps until it hides the truth',tier:4,family:'abstraction'},
+    {text:'complexity grows quietly until the model breaks',tier:5,family:'complexity'},
+    {text:'search trees reward balanced insertion paths',tier:3,family:'trees'},
+    {text:'deterministic models simplify difficult debugging',tier:4,family:'determinism'},
+    {text:'correctness matters before optimization dazzles anyone',tier:5,family:'correctness'},
+  ],
+  software_engineering:[
+    {text:'small commits make debugging easier',tier:1,family:'commits'},
+    {text:'tests protect behaviour during refactoring',tier:1,family:'tests'},
+    {text:'clear naming removes needless friction',tier:2,family:'naming'},
+    {text:'interfaces fail when contracts drift silently',tier:2,family:'interfaces'},
+    {text:'deployment safety starts before release day',tier:2,family:'deployment'},
+    {text:'version control remembers what panic forgets',tier:3,family:'versioning'},
+    {text:'maintainable systems resist heroic shortcuts',tier:3,family:'maintainability'},
+    {text:'observability turns outages into evidence',tier:3,family:'observability'},
+    {text:'technical debt compounds during rushed delivery',tier:4,family:'debt'},
+    {text:'pipelines must fail loudly and predictably',tier:4,family:'pipelines'},
+    {text:'good reviews catch risk before production does',tier:4,family:'reviews'},
+    {text:'reliable software respects both users and maintainers',tier:5,family:'reliability'},
+    {text:'shared ownership beats isolated heroics in production',tier:3,family:'ownership'},
+    {text:'rollback plans matter before risky releases',tier:4,family:'rollback'},
+    {text:'maintainers remember every shortcut left undocumented',tier:5,family:'maintainers'},
+  ],
+  cybersecurity:[
+    {text:'verify identity before granting access',tier:1,family:'auth'},
+    {text:'confidentiality integrity and availability matter',tier:1,family:'cia'},
+    {text:'credentials need rotation before trust expires',tier:2,family:'credentials'},
+    {text:'least privilege limits the blast radius',tier:2,family:'privilege'},
+    {text:'authentication fails when secrets leak early',tier:2,family:'auth'},
+    {text:'authorization must follow verified identity',tier:3,family:'auth'},
+    {text:'incident response begins before the breach',tier:3,family:'incident'},
+    {text:'phishing exploits attention more than hardware',tier:3,family:'phishing'},
+    {text:'forensics preserves evidence before assumptions',tier:4,family:'forensics'},
+    {text:'mitigation works best before attackers adapt',tier:4,family:'mitigation'},
+    {text:'resilience depends on layered defensive choices',tier:4,family:'defense'},
+    {text:'zero trust demands verification at every boundary',tier:5,family:'trust'},
+    {text:'attack surfaces grow when defaults stay careless',tier:3,family:'surface'},
+    {text:'defenders need visibility before containment works',tier:4,family:'defense'},
+    {text:'resistant systems assume compromise and limit movement',tier:5,family:'resilience'},
+  ],
+  business_technopreneurship:[
+    {text:'customer trust creates durable growth',tier:1,family:'customer'},
+    {text:'pricing shapes both demand and margin',tier:1,family:'pricing'},
+    {text:'retention compounds value after acquisition',tier:2,family:'retention'},
+    {text:'validation matters before scaling expense',tier:2,family:'validation'},
+    {text:'revenue growth must create sustainable value',tier:2,family:'revenue'},
+    {text:'operations decide whether strategy survives',tier:3,family:'operations'},
+    {text:'entrepreneurship rewards timing and discipline',tier:3,family:'entrepreneurship'},
+    {text:'prototypes reduce risk before major investment',tier:3,family:'prototype'},
+    {text:'stakeholders notice friction before loyalty',tier:4,family:'stakeholder'},
+    {text:'capital amplifies both good and bad decisions',tier:4,family:'capital'},
+    {text:'brand promises fail when delivery drifts',tier:4,family:'branding'},
+    {text:'sustainable ventures earn trust before scale',tier:5,family:'venture'},
+    {text:'supply chains reward resilient planning under stress',tier:3,family:'supply'},
+    {text:'founders need evidence before chasing expansion',tier:4,family:'founder'},
+    {text:'healthy margins protect experiments during volatility',tier:5,family:'margin'},
+  ],
+  code:[
+    {text:'functions should do one thing well',tier:1,family:'functions'},
+    {text:'loops need clear exit conditions',tier:1,family:'loops'},
+    {text:'state changes must remain predictable',tier:2,family:'state'},
+    {text:'variables communicate intent through names',tier:2,family:'variables'},
+    {text:'errors deserve handling close to failure',tier:2,family:'errors'},
+    {text:'modules stay useful when boundaries remain clear',tier:3,family:'modules'},
+    {text:'refactors succeed when behaviour stays stable',tier:3,family:'refactor'},
+    {text:'debugging starts by reproducing the issue',tier:3,family:'debugging'},
+    {text:'concurrency multiplies mistakes without coordination',tier:4,family:'concurrency'},
+    {text:'latency hides in every unnecessary dependency',tier:4,family:'latency'},
+    {text:'readability pays interest through every release',tier:4,family:'readability'},
+    {text:'maintainers inherit every shortcut you ignore today',tier:5,family:'maintainers'},
+    {text:'state machines reduce chaos in growing systems',tier:3,family:'state'},
+    {text:'interfaces break when assumptions stay implicit',tier:4,family:'interfaces'},
+    {text:'clarity scales better than cleverness under pressure',tier:5,family:'clarity'},
+  ],
+};
+
+const INPUT_PROFILES={
+  word:{
+    normalize:function(text){
+      return text
+        .toLowerCase()
+        .replace(/[^a-z\s]/g,' ')
+        .replace(/\s+/g,' ')
+        .trim();
+    },
+    isValid:function(text){
+      return /^[a-z ]+$/.test(text);
+    },
+  },
+};
+
+function prepareCorpus(corpus,profile,label){
+  const out=[];
+  const seen=new Set();
+  for(const raw of corpus){
+    const normalized=profile.normalize(raw);
+    if(!normalized||!profile.isValid(normalized))continue;
+    if(!seen.has(normalized)){
+      seen.add(normalized);
+      out.push(normalized);
+    }
+    if(normalized!==raw.toLowerCase().trim()){
+      console.warn('Corpus normalized for',label,raw,'->',normalized);
+    }
+  }
+  return out;
+}
+
+const WORD_DOMAIN_MAP={
+  computer_science:new Set(['algorithm','algorithmic','array','binary','boolean','byte','cache','compiler','concurrency','data','graph','hash','integer','kernel','linked','memory','pointer','process','queue','recursion','stack','string','thread','tree','variable','matrix','vector','iterator','struct','mutex','runtime','latency','throughput','inheritance','polymorphism']),
+  software_engineering:new Set(['frontend','backend','api','database','interface','component','dependency','repository','refactor','runtime','testing','deployment','docker','git','branch','merge','commit','endpoint','schema','middleware','framework','versioning','pipeline','debugging','documentation','maintainability','observability','validation']),
+  cybersecurity:new Set(['authentication','authorization','availability','confidentiality','integrity','encryption','hashing','firewall','phishing','malware','ransomware','exploit','vulnerability','threat','risk','mitigation','incident','audit','access','credential','certificate','network','packet','protocol','intrusion','forensics','policy','privilege','compliance','cybersecurity']),
+  business_technopreneurship:new Set(['customer','revenue','expense','margin','profit','market','strategy','venture','startup','founder','prototype','innovation','entrepreneurship','validation','product','pricing','equity','capital','investment','stakeholder','value','supply','demand','branding','operations','acquisition','retention','scalability']),
+  code:new Set(['function','async','await','lambda','class','return','import','export','const','static','interface','promise','callback','render','debug','compile','syntax','module','query','parse','buffer','console','script','config','error','yield','switch','default','break','null','void','enum','super','throw','catch','final','loop','node','type','code','slice','push','filter','reduce','state','props','fetch','route','scope','event','input','output','react','redux','webpack','typescript','python','golang','github','linux']),
+};
+
+function inferDomain(text){
+  for(const domain of Object.keys(WORD_DOMAIN_MAP)){
+    if(WORD_DOMAIN_MAP[domain].has(text))return domain;
+  }
+  return 'general';
+}
+
+function inferTier(text,domain){
+  if(text.includes(' '))return Math.min(5,Math.max(2,Math.ceil(text.length/10)));
+  let tier=text.length<=4?1:text.length<=6?2:text.length<=9?3:text.length<=12?4:5;
+  if(domain!=='general')tier=Math.min(5,tier+1);
+  return tier;
+}
+
+function inferFamily(text){
+  if(/^auth/.test(text))return 'auth';
+  if(/^crypt|^cipher/.test(text))return 'crypto';
+  if(/^deploy|^release|^runtime|^build/.test(text))return 'delivery';
+  if(/^debug|^test/.test(text))return 'testing';
+  if(/^profit|^revenue|^pricing|^market/.test(text))return 'market';
+  if(/^queue|^stack|^tree|^graph/.test(text))return 'structures';
+  if(/^merge|^commit|^branch|^repository/.test(text))return 'git';
+  return text.length>=6?text.slice(0,5):text;
+}
+
+function buildNormalTargets(words){
+  return prepareCorpus(words,INPUT_PROFILES.word,'WORDS').map(function(text){
+    const domain=inferDomain(text);
+    return{
+      text:text,
+      domain:domain,
+      tier:inferTier(text,domain),
+      family:inferFamily(text),
+      charCount:text.replace(/ /g,'').length,
+    };
+  });
+}
+
+function buildBossLibrary(rawLibrary){
+  const out={mixed:[]};
+  for(const domain of Object.keys(rawLibrary)){
+    const seen=new Set();
+    out[domain]=[];
+    for(const source of rawLibrary[domain]){
+      const text=INPUT_PROFILES.word.normalize(source.text);
+      if(!text||!INPUT_PROFILES.word.isValid(text)||seen.has(text))continue;
+      seen.add(text);
+      out[domain].push({
+        text:text,
+        domain:domain,
+        tier:source.tier||inferTier(text,domain),
+        family:source.family||inferFamily(text),
+        charCount:text.replace(/ /g,'').length,
+      });
+    }
+    out.mixed=out.mixed.concat(out[domain]);
+  }
+  return out;
+}
+
+const NORMAL_TARGETS=buildNormalTargets(WORDS_RAW);
+const BOSS_LIBRARY=buildBossLibrary(BOSS_LIBRARY_RAW);
+
+/* ===== CANVAS SETUP ===== */
+const canvas=document.getElementById('gc');
+const ctx=canvas.getContext('2d');
+let W=0,H=0,dpr=1;
+
+function resize(){
+  dpr=Math.min(window.devicePixelRatio||1,2);
+  W=window.innerWidth; H=window.innerHeight;
+  canvas.width=W*dpr; canvas.height=H*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  if(player) player.y=H-PLAYER_Y_OFF;
+  if(player) player.x=W/2;
+}
+window.addEventListener('resize',resize);
+
+/* ===== GAME STATE ===== */
+let state={},player={},enemies=[],lasers=[],particles=[],stars=[];
+let screen='menu',rafId=null,lastTS=0;
+let audioCtx=null,masterGain=null,muted=false,audioInited=false;
+let musicIntervals=[];
+let musicLayer=0;
+let bassNodes=null,padNodes=null;
+const navState={menu:0,paused:0,gameover:0,analytics:0,about:0};
+const NAV_BUTTON_IDS=['btnStart','btnZen','btnAnalytics','btnAbout','btnResume','btnQuit','btnRetry','btnGoMenu','btnAnaReset','btnAnaBack','btnAboutBack'];
+
+function freshState(zen){
+  return{
+    score:0,flowMult:1,consPerf:0,shields:SHIELD_MAX,
+    totalKeys:0,correctKeys:0,errors:0,
+    wordsDone:0,killed:0,bossActive:false,
+    timeScale:1,slowTimer:0,diffFactor:1,
+    currentTarget:null,lastKeyTime:null,keyIntervals:[],
+    wpmHist:[],longestStreak:0,lastSpawn:0,
+    startTime:performance.now(),peakWpm:0,
+    shake:{x:0,y:0,intensity:0},redFlash:0,
+    bossBeam:0,zen:zen,
+    sessionLetters:{},
+    bossTimeoutId:null,recentWords:[],recentBosses:[],
+    liveWpm:0,recentCorrectTimes:[],
+    lastHudPaint:0,
+    difficultyKey:loadDifficulty(),
+    progressionTimeOffset:0,
+    hyperdriveUsed:false,
+    hyperdriveReady:false,
+    hyperdriveFx:0,
+    selectedDomain:loadDomain(),
+    recentFamilies:[],
+    wordExposureCount:{},
+    wordLastSeenAt:{},
+    wordPerformance:{},
+    reviewQueue:[],
+    wordEncounterIndex:0,
+    bossEncounterIndex:0,
+    uniqueWordsSeen:{},
+    lastSelectionTelemetry:null,
+    lastBossTelemetry:null,
+    bossDeck:[],
+    bossDeckKey:'',
+    bossDeckPrevious:null,
+  };
+}
+
+/* ===== PERSISTENCE ===== */
+/* Memory-first store. Mirrors to localStorage when available, and to the
+   Tasklet bridge (durable across sessions) when running as an instant app. */
+const MEM = {};
+const BRIDGE_PATH = '/tasklet/agent/home/aether-type-save.json';
+let bridgeReady = false, bridgeTimer = null;
+
+function loadLS(key,def){
+  if(key in MEM) return MEM[key];
+  try{const v=localStorage.getItem(key);if(v!=null){MEM[key]=JSON.parse(v);return MEM[key]}}catch(e){}
+  return def;
+}
+function saveLS(key,val){
+  MEM[key]=val;
+  try{localStorage.setItem(key,JSON.stringify(val))}catch(e){}
+  flushBridge();
+}
+function removeLS(key){
+  delete MEM[key];
+  try{localStorage.removeItem(key)}catch(e){}
+  flushBridge();
+}
+function flushBridge(){
+  if(!bridgeReady)return;
+  clearTimeout(bridgeTimer);
+  bridgeTimer=setTimeout(function(){
+    try{window.tasklet.writeFileToDisk(BRIDGE_PATH,JSON.stringify(MEM))}catch(e){}
+  },800);
+}
+async function hydrateBridge(){
+  if(!(window.tasklet&&window.tasklet.readFileFromDisk&&window.tasklet.writeFileToDisk))return;
+  try{
+    const raw=await window.tasklet.readFileFromDisk(BRIDGE_PATH);
+    const data=JSON.parse(typeof raw==='string'?raw:JSON.stringify(raw));
+    if(data&&typeof data==='object')for(const k in data)if(!(k in MEM))MEM[k]=data[k];
+  }catch(e){/* first run: no save file yet */}
+  bridgeReady=true;
+}
+function loadLetterStats(){return loadLS('aether_letterStats',{})}
+function saveLetterStats(s){saveLS('aether_letterStats',s)}
+function loadBest(){return loadLS('aether_best',0)}
+function saveBest(s){saveLS('aether_best',s)}
+function loadRating(){return loadLS('aether_rating',1000)}
+function saveRating(r){saveLS('aether_rating',r)}
+function loadDomain(){
+  const raw=loadLS('aether_domain','mixed');
+  return DOMAIN_KEYS.includes(raw)?raw:'mixed';
+}
+function saveDomain(domain){
+  if(DOMAIN_KEYS.includes(domain))saveLS('aether_domain',domain);
+}
+function loadDifficulty(){
+  const raw=loadLS('aether_difficulty','pilot');
+  return DIFFICULTY_PRESETS[raw]?raw:'pilot';
+}
+function saveDifficulty(key){saveLS('aether_difficulty',key)}
+
+function getDifficultyPreset(key){
+  return DIFFICULTY_PRESETS[key||state.difficultyKey||loadDifficulty()]||DIFFICULTY_PRESETS.pilot;
+}
+
+function resetBossUI(){
+  document.getElementById('hudBoss').style.display='none';
+  document.getElementById('bossBarFill').style.width='0%';
+}
+
+function clearBossSchedule(){
+  if(state&&state.bossTimeoutId){
+    clearTimeout(state.bossTimeoutId);
+    state.bossTimeoutId=null;
+  }
+}
+
+function clearSessionState(){
+  clearBossSchedule();
+  enemies=[];lasers=[];particles=[];
+  if(state){
+    state.bossActive=false;
+    state.currentTarget=null;
+    state.flowMult=1;
+    state.consPerf=0;
+    state.hyperdriveFx=0;
+  }
+  musicLayer=1;
+  if(padNodes&&audioCtx){
+    padNodes.pg.gain.cancelScheduledValues(audioCtx.currentTime);
+    padNodes.pg.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.08);
+  }
+  resetBossUI();
+  document.getElementById('recoveryHint').style.display='none';
+  document.getElementById('hyperHint').style.display='none';
+}
+
+function updateLetterStat(letter,correct){
+  if(!letter||letter===' ')return;
+  const s=loadLetterStats();
+  if(!s[letter])s[letter]={total:0,errors:0};
+  s[letter].total++;
+  if(!correct)s[letter].errors++;
+  saveLetterStats(s);
+  // session
+  if(!state.sessionLetters[letter])state.sessionLetters[letter]={t:0,e:0};
+  state.sessionLetters[letter].t++;
+  if(!correct)state.sessionLetters[letter].e++;
+}
+
+function findWeakLetters(stats){
+  const arr=[];
+  for(let i=97;i<=122;i++){
+    const l=String.fromCharCode(i);
+    const s=stats[l];
+    arr.push({l,rate:s&&s.total>0?s.errors/s.total:0});
+  }
+  arr.sort((a,b)=>b.rate-a.rate);
+  return arr.filter(x=>x.rate>0).slice(0,6).map(x=>x.l);
+}
+
+function updateLiveWpm(now){
+  state.recentCorrectTimes.push(now);
+  const cutoff=now-LIVE_WPM_WINDOW_MS;
+  while(state.recentCorrectTimes.length&&state.recentCorrectTimes[0]<cutoff){
+    state.recentCorrectTimes.shift();
+  }
+  const observed=(state.recentCorrectTimes.length/5)/(LIVE_WPM_WINDOW_MS/60000);
+  state.liveWpm=state.liveWpm===0?observed:(state.liveWpm*0.78+observed*0.22);
+  if(state.liveWpm>state.peakWpm)state.peakWpm=Math.round(state.liveWpm);
+}
+
+function getRunElapsedMs(){
+  return Math.max(0,performance.now()-state.startTime)+state.progressionTimeOffset*1000;
+}
+
+function getRunElapsedSec(){
+  return getRunElapsedMs()/1000;
+}
+
+function canUseHyperdrive(){
+  return loadBest()>=HYPERDRIVE_SCORE_GATE;
+}
+
+function updatePauseDifficultyUI(){
+  const preset=getDifficultyPreset();
+  const nameEl=document.getElementById('pauseDiffName');
+  const copyEl=document.getElementById('pauseDiffCopy');
+  if(nameEl)nameEl.textContent=preset.label;
+  if(copyEl)copyEl.textContent=preset.copy;
+}
+
+function setDifficulty(key){
+  if(!DIFFICULTY_PRESETS[key])return;
+  state.difficultyKey=key;
+  saveDifficulty(key);
+  updatePauseDifficultyUI();
+  updateMenuStats();
+}
+
+function shiftDifficulty(dir){
+  const current=DIFFICULTY_ORDER.indexOf(state.difficultyKey||loadDifficulty());
+  const start=current===-1?1:current;
+  const nextIndex=Math.max(0,Math.min(DIFFICULTY_ORDER.length-1,start+dir));
+  setDifficulty(DIFFICULTY_ORDER[nextIndex]);
+}
+
+function maybeShowHyperHint(){
+  const hint=document.getElementById('hyperHint');
+  const active=(screen==='playing'||screen==='zen')
+    && state.hyperdriveReady
+    && !state.hyperdriveUsed
+    && getRunElapsedMs()<=HYPERDRIVE_WINDOW_MS;
+  hint.style.display=active?'block':'none';
+}
+
+function triggerHyperdrive(){
+  if(!(screen==='playing'||screen==='zen'))return false;
+  if(!state.hyperdriveReady||state.hyperdriveUsed)return false;
+  if(getRunElapsedMs()>HYPERDRIVE_WINDOW_MS)return false;
+  const preset=getDifficultyPreset();
+  state.hyperdriveUsed=true;
+  state.progressionTimeOffset+=preset.hyperSkip;
+  state.lastSpawn=Math.max(state.lastSpawn,getSpawnInterval()*0.9);
+  state.flowMult=Math.max(state.flowMult,2);
+  state.consPerf=Math.max(state.consPerf,5);
+  state.redFlash=0;
+  state.hyperdriveFx=1.2;
+  triggerShake(12);
+  updateMusicLayers();
+  if(!state.bossActive){
+    spawnEnemy();
+    spawnEnemy();
+  }
+  maybeShowHyperHint();
+  return true;
+}
+
+/* ===== AUDIO ENGINE ===== */
+function initAudio(){
+  if(audioInited)return;
+  try{
+    audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    masterGain=audioCtx.createGain();
+    masterGain.gain.value=muted?0:0.5;
+    masterGain.connect(audioCtx.destination);
+    setupMusic();
+    audioInited=true;
+  }catch(e){console.warn('Audio init failed',e)}
+}
+
+function createNoise(dur){
+  const sr=audioCtx.sampleRate,len=Math.floor(sr*dur);
+  const buf=audioCtx.createBuffer(1,len,sr);
+  const d=buf.getChannelData(0);
+  for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
+  return buf;
+}
+
+let noiseCache=null;
+function getNoise(){
+  if(!noiseCache)noiseCache=createNoise(2);
+  return noiseCache;
+}
+
+function setupMusic(){
+  // Bass: detuned saw through lowpass
+  const b1=audioCtx.createOscillator();b1.type='sawtooth';b1.frequency.value=55;
+  const b2=audioCtx.createOscillator();b2.type='square';b2.frequency.value=55.2;
+  const bf=audioCtx.createBiquadFilter();bf.type='lowpass';bf.frequency.value=150;bf.Q.value=6;
+  const bg=audioCtx.createGain();bg.gain.value=0.13;
+  b1.connect(bf);b2.connect(bf);bf.connect(bg);bg.connect(masterGain);
+  b1.start();b2.start();
+  // LFO for pulse
+  const lfo=audioCtx.createOscillator();lfo.frequency.value=2;
+  const lg=audioCtx.createGain();lg.gain.value=0.06;
+  lfo.connect(lg);lg.connect(bg.gain);lfo.start();
+  bassNodes={b1,b2,bf,bg,lfo,lg};
+
+  // Pad (starts silent)
+  const p1=audioCtx.createOscillator();p1.type='sawtooth';p1.frequency.value=220;
+  const p2=audioCtx.createOscillator();p2.type='sawtooth';p2.frequency.value=220.7;
+  const p3=audioCtx.createOscillator();p3.type='sawtooth';p3.frequency.value=329.6;
+  const pf=audioCtx.createBiquadFilter();pf.type='lowpass';pf.frequency.value=500;
+  const pg=audioCtx.createGain();pg.gain.value=0;
+  p1.connect(pf);p2.connect(pf);p3.connect(pf);pf.connect(pg);pg.connect(masterGain);
+  p1.start();p2.start();p3.start();
+  padNodes={p1,p2,p3,pf,pg};
+
+  // Hi-hat interval
+  const hhId=setInterval(()=>{if(musicLayer>=2)playHiHat()},250);
+  musicIntervals.push(hhId);
+
+  // Arpeggio
+  const arpNotes=[220,261.6,293.7,329.6,392,440,523.3];
+  let arpIdx=0;
+  const arpId=setInterval(()=>{
+    if(musicLayer>=3){playArpNote(arpNotes[arpIdx%arpNotes.length]);arpIdx++}
+  },200);
+  musicIntervals.push(arpId);
+}
+
+function playHiHat(){
+  if(!audioCtx||muted)return;
+  const src=audioCtx.createBufferSource();src.buffer=getNoise();
+  const f=audioCtx.createBiquadFilter();f.type='highpass';f.frequency.value=8000;
+  const g=audioCtx.createGain();const t=audioCtx.currentTime;
+  g.gain.setValueAtTime(0.06,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.05);
+  src.connect(f);f.connect(g);g.connect(masterGain);src.start(t);src.stop(t+0.06);
+}
+
+function playArpNote(freq){
+  if(!audioCtx||muted)return;
+  const o=audioCtx.createOscillator();o.type='triangle';o.frequency.value=freq;
+  const g=audioCtx.createGain();const t=audioCtx.currentTime;
+  g.gain.setValueAtTime(0.045,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.18);
+  o.connect(g);g.connect(masterGain);o.start(t);o.stop(t+0.2);
+}
+
+function updateMusicLayers(){
+  const m=state.flowMult;
+  musicLayer=m>=5?4:m>=3?3:m>=2?2:1;
+  if(padNodes){
+    const tv=musicLayer>=4?0.04:0;
+    padNodes.pg.gain.linearRampToValueAtTime(tv,audioCtx.currentTime+0.5);
+  }
+}
+
+/* SFX */
+function playClick(pan){
+  if(!audioCtx||muted)return;
+  const src=audioCtx.createBufferSource();src.buffer=getNoise();
+  const f=audioCtx.createBiquadFilter();f.type='bandpass';f.frequency.value=5000;f.Q.value=1.5;
+  const g=audioCtx.createGain();const t=audioCtx.currentTime;
+  g.gain.setValueAtTime(0.12,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.025);
+  const p=audioCtx.createStereoPanner();p.pan.value=Math.max(-1,Math.min(1,pan||0));
+  src.connect(f);f.connect(g);g.connect(p);p.connect(masterGain);
+  src.start(t);src.stop(t+0.03);
+}
+
+function playThrum(){
+  if(!audioCtx||muted)return;
+  const o=audioCtx.createOscillator();o.type='sine';const t=audioCtx.currentTime;
+  o.frequency.setValueAtTime(220,t);o.frequency.exponentialRampToValueAtTime(70,t+0.25);
+  const g=audioCtx.createGain();g.gain.setValueAtTime(0.18,t);
+  g.gain.exponentialRampToValueAtTime(0.001,t+0.3);
+  o.connect(g);g.connect(masterGain);o.start(t);o.stop(t+0.35);
+}
+
+function playError(){
+  if(!audioCtx||muted)return;
+  const o=audioCtx.createOscillator();o.type='square';o.frequency.value=75;
+  const g=audioCtx.createGain();const t=audioCtx.currentTime;
+  g.gain.setValueAtTime(0.12,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.12);
+  o.connect(g);g.connect(masterGain);o.start(t);o.stop(t+0.15);
+}
+
+function playExplosion(pan){
+  if(!audioCtx||muted)return;
+  const src=audioCtx.createBufferSource();src.buffer=getNoise();
+  const f=audioCtx.createBiquadFilter();f.type='lowpass';const t=audioCtx.currentTime;
+  f.frequency.setValueAtTime(2500,t);f.frequency.exponentialRampToValueAtTime(80,t+0.35);
+  const g=audioCtx.createGain();g.gain.setValueAtTime(0.2,t);
+  g.gain.exponentialRampToValueAtTime(0.001,t+0.4);
+  const p=audioCtx.createStereoPanner();p.pan.value=Math.max(-1,Math.min(1,pan||0));
+  src.connect(f);f.connect(g);g.connect(p);p.connect(masterGain);
+  src.start(t);src.stop(t+0.45);
+}
+
+function playBeam(){
+  if(!audioCtx||muted)return;
+  const src=audioCtx.createBufferSource();src.buffer=getNoise();
+  const f=audioCtx.createBiquadFilter();f.type='lowpass';f.Q.value=6;const t=audioCtx.currentTime;
+  f.frequency.setValueAtTime(300,t);f.frequency.linearRampToValueAtTime(3500,t+0.25);
+  f.frequency.linearRampToValueAtTime(150,t+1);
+  const g=audioCtx.createGain();g.gain.setValueAtTime(0.28,t);
+  g.gain.linearRampToValueAtTime(0.32,t+0.2);
+  g.gain.exponentialRampToValueAtTime(0.001,t+1);
+  src.connect(f);f.connect(g);g.connect(masterGain);src.start(t);src.stop(t+1.1);
+}
+
+function toggleMute(){
+  muted=!muted;
+  document.getElementById('muteBtn').textContent='SOUND: '+(muted?'OFF':'ON');
+  if(masterGain)masterGain.gain.value=muted?0:0.5;
+}
+
+/* ===== STARFIELD ===== */
+function initStars(){
+  stars=[];
+  for(let i=0;i<MAX_STARS;i++){
+    stars.push({x:Math.random()*Math.max(W,1),y:Math.random()*Math.max(H,1),
+      z:Math.random()*2.5+0.5,b:Math.random()*0.4+0.2});
+  }
+}
+
+function updateStars(dt){
+  for(const s of stars){
+    s.y+=s.z*25*dt;
+    if(s.y>H){s.y=0;s.x=Math.random()*W;s.z=Math.random()*2.5+0.5}
+  }
+}
+
+function drawStars(){
+  for(const s of stars){
+    const a=s.b*(s.z/3);
+    ctx.fillStyle='rgba(180,200,255,'+a+')';
+    ctx.fillRect(s.x,s.y,s.z*0.7,s.z*0.7);
+  }
+}
+
+/* ===== PARTICLE SYSTEM ===== */
+function spawnP(x,y,vx,vy,color,life,size,text){
+  if(particles.length>=MAX_PARTICLES)return;
+  particles.push({x,y,vx,vy,color,life,ml:life,size,text:text||null});
+}
+
+function spawnExplosion(x,y,color,word){
+  const n=18+state.flowMult*4;
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2,sp=Math.random()*220+40;
+    spawnP(x,y,Math.cos(a)*sp,Math.sin(a)*sp,color,0.4+Math.random()*0.4,Math.random()*3+1);
+  }
+  if(word){
+    for(let i=0;i<word.length;i++){
+      const ch=word[i];if(ch===' ')continue;
+      const a=Math.random()*Math.PI*2,sp=Math.random()*130+25;
+      spawnP(x+(i-word.length/2)*6,y,Math.cos(a)*sp,Math.sin(a)*sp,color,0.7+Math.random()*0.4,13,ch);
+    }
+  }
+}
+
+function spawnBossExplosion(x,y){
+  for(let i=0;i<80;i++){
+    const a=Math.random()*Math.PI*2,sp=Math.random()*350+80;
+    const c=[CYAN,MAGENTA,YELLOW,'#ffffff'][Math.floor(Math.random()*4)];
+    spawnP(x,y,Math.cos(a)*sp,Math.sin(a)*sp,c,0.6+Math.random()*0.6,Math.random()*4+1);
+  }
+}
+
+function updateParticles(dt){
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];
+    p.x+=p.vx*dt;p.y+=p.vy*dt;
+    p.vy+=120*dt; // slight gravity
+    p.life-=dt;
+    if(p.life<=0)particles.splice(i,1);
+  }
+}
+
+function drawParticles(){
+  ctx.save();ctx.globalCompositeOperation='lighter';
+  for(const p of particles){
+    const al=Math.max(0,p.life/p.ml);
+    ctx.globalAlpha=al;
+    if(p.text){
+      ctx.fillStyle=p.color;ctx.shadowColor=p.color;ctx.shadowBlur=6;
+      ctx.font='bold '+p.size+'px monospace';
+      ctx.fillText(p.text,p.x,p.y);
+    }else{
+      ctx.fillStyle=p.color;ctx.shadowColor=p.color;ctx.shadowBlur=p.size*3;
+      ctx.beginPath();ctx.arc(p.x,p.y,p.size*al,0,Math.PI*2);ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+/* ===== PLAYER ===== */
+function initPlayer(){
+  player={x:W/2,y:H-PLAYER_Y_OFF,angle:0,tAngle:0};
+}
+
+function updatePlayer(dt){
+  player.y=H-PLAYER_Y_OFF;
+  // Tilt toward target
+  if(state.currentTarget){
+    const dx=state.currentTarget.x-player.x;
+    const dy=state.currentTarget.y-player.y;
+    player.tAngle=Math.atan2(dx,-dy)*0.3;
+  }else{
+    player.tAngle=0;
+  }
+  player.angle+=(player.tAngle-player.angle)*5*dt;
+  if(state.hyperdriveFx>0){
+    state.hyperdriveFx=Math.max(0,state.hyperdriveFx-dt);
+  }
+  // Engine particles
+  const boost=state.hyperdriveFx>0?1+state.hyperdriveFx*3.8:1;
+  const engineChance=Math.min(0.96,0.3*boost);
+  if(Math.random()<engineChance){
+    const spread=state.hyperdriveFx>0?12:6;
+    const tailSpeed=(state.hyperdriveFx>0?150:60)+(Math.random()*80);
+    spawnP(player.x+Math.random()*spread-spread/2,player.y+12+Math.random()*8,
+      Math.random()*30-15,tailSpeed,CYAN,state.hyperdriveFx>0?0.55:0.3,state.hyperdriveFx>0?2.8:1.5);
+    if(state.hyperdriveFx>0&&Math.random()<0.75){
+      spawnP(player.x+Math.random()*10-5,player.y+18+Math.random()*18,
+        Math.random()*50-25,220+Math.random()*160,YELLOW,0.42,2.2);
+    }
+  }
+}
+
+function drawPlayer(){
+  ctx.save();ctx.translate(player.x,player.y);ctx.rotate(player.angle);
+  const hyper=Math.max(0,Math.min(1,state.hyperdriveFx));
+  // Engine glow
+  ctx.shadowColor=hyper>0?YELLOW:CYAN;
+  ctx.shadowBlur=25+hyper*28;
+  ctx.fillStyle=hyper>0?'rgba(255,210,90,'+(0.18+hyper*0.2)+')':'rgba(0,255,255,0.15)';
+  ctx.beginPath();ctx.moveTo(0,-5);
+  ctx.lineTo(-8,12+Math.random()*6+hyper*20);ctx.lineTo(8,12+Math.random()*6+hyper*20);
+  ctx.closePath();ctx.fill();
+  if(hyper>0){
+    ctx.fillStyle='rgba(255,255,255,'+(0.1+hyper*0.18)+')';
+    ctx.beginPath();ctx.moveTo(0,4);
+    ctx.lineTo(-4,22+hyper*30);ctx.lineTo(4,22+hyper*30);
+    ctx.closePath();ctx.fill();
+  }
+  // Body
+  ctx.shadowBlur=18;ctx.strokeStyle=CYAN;ctx.fillStyle='#0a0a0a';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(0,-22);ctx.lineTo(-13,13);
+  ctx.lineTo(0,7);ctx.lineTo(13,13);ctx.closePath();
+  ctx.fill();ctx.stroke();
+  // Canopy detail
+  ctx.strokeStyle='rgba(0,255,255,0.4)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(0,-14);ctx.lineTo(-5,5);ctx.lineTo(5,5);ctx.closePath();ctx.stroke();
+  if(hyper>0){
+    ctx.strokeStyle='rgba(255,220,120,'+(0.35+hyper*0.35)+')';
+    ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(-10,10);ctx.lineTo(-16,26+hyper*16);
+    ctx.moveTo(10,10);ctx.lineTo(16,26+hyper*16);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/* ===== ENEMY SYSTEM ===== */
+function getReservedInitials(){
+  const reserved=new Set();
+  for(const enemy of enemies){
+    if(enemy.targeted||enemy.typed>=enemy.word.length)continue;
+    reserved.add(enemy.word[enemy.typed]);
+  }
+  return reserved;
+}
+
+function pushBounded(queue,value,max){
+  queue.push(value);
+  while(queue.length>max)queue.shift();
+}
+
+function getWordsSinceSeen(text){
+  const last=state.wordLastSeenAt[text];
+  return last===undefined?Infinity:state.wordEncounterIndex-last;
+}
+
+function getBossesSinceSeen(text){
+  const idx=state.recentBosses.lastIndexOf(text);
+  return idx===-1?Infinity:state.recentBosses.length-1-idx;
+}
+
+function getTierTarget(){
+  return Math.max(1,Math.min(5,1+Math.floor(getRunElapsedSec()/55)));
+}
+
+function getBossTier(){
+  return Math.max(1,Math.min(5,1+Math.floor(state.killed/Math.max(BOSS_EVERY,1))));
+}
+
+function getRecentPenalty(wordsSinceSeen){
+  if(wordsSinceSeen===Infinity)return 1;
+  if(wordsSinceSeen<10)return 0;
+  if(wordsSinceSeen<=25)return 0.05;
+  if(wordsSinceSeen<=50)return 0.35;
+  if(wordsSinceSeen<=100)return 0.7;
+  return 1;
+}
+
+function getFamilyPenalty(family){
+  if(!family)return 1;
+  const idx=state.recentFamilies.lastIndexOf(family);
+  if(idx===-1)return 1;
+  const distance=state.recentFamilies.length-1-idx;
+  if(distance<2)return 0.08;
+  if(distance<4)return 0.28;
+  if(distance<RECENT_FAMILY_WINDOW)return 0.6;
+  return 1;
+}
+
+function getWeaknessWeight(entry,weakLetters){
+  for(const ch of entry.text){
+    if(ch!==' '&&weakLetters.includes(ch))return state.zen?1.6:1.25;
+  }
+  return 1;
+}
+
+function getMasteryWeight(perf){
+  if(!perf||!perf.attempts)return 1;
+  const errorRate=perf.errors/Math.max(perf.attempts,1);
+  if(errorRate>=0.45)return 1.55;
+  if(errorRate>=0.25)return 1.25;
+  if(errorRate<=0.05&&perf.attempts>=3)return 0.82;
+  return 1;
+}
+
+function getTierWeight(entry){
+  const targetTier=getTierTarget();
+  const delta=Math.abs(entry.tier-targetTier);
+  return delta===0?1.2:delta===1?1:delta===2?0.55:0.28;
+}
+
+function getDomainWeight(entry){
+  const selected=state.selectedDomain||'mixed';
+  if(selected==='mixed')return entry.domain==='general'?0.95:1.05;
+  return entry.domain===selected?1.25:entry.domain==='general'?0.75:0.5;
+}
+
+function getReviewItem(text){
+  for(const item of state.reviewQueue){
+    if(item.text===text)return item;
+  }
+  return null;
+}
+
+function getReviewWeight(entry){
+  const review=getReviewItem(entry.text);
+  if(!review)return 1;
+  if(review.dueAt>state.wordEncounterIndex)return 0.18;
+  return 2.35+Math.min(review.failures*0.25,0.9);
+}
+
+function getNormalTargetPool(){
+  const selected=state.selectedDomain||'mixed';
+  if(selected==='mixed')return NORMAL_TARGETS;
+  const filtered=NORMAL_TARGETS.filter(function(entry){
+    return entry.domain===selected||entry.domain==='general';
+  });
+  return filtered.length?filtered:NORMAL_TARGETS;
+}
+
+function chooseByWeight(candidates){
+  let total=0;
+  for(const candidate of candidates)total+=candidate.weight;
+  if(total<=0)return null;
+  let roll=Math.random()*total;
+  for(const candidate of candidates){
+    roll-=candidate.weight;
+    if(roll<=0)return candidate;
+  }
+  return candidates[candidates.length-1]||null;
+}
+
+function leastRecentFallback(candidates){
+  if(!candidates.length)return null;
+  const sorted=candidates.slice().sort(function(a,b){
+    const aSeen=getWordsSinceSeen(a.text);
+    const bSeen=getWordsSinceSeen(b.text);
+    if(aSeen!==bSeen)return bSeen-aSeen;
+    return (a.exposureCount||0)-(b.exposureCount||0);
+  });
+  return sorted[0];
+}
+
+function buildWordCandidates(reservedInitials,options){
+  const stats=loadLetterStats();
+  const weakLetters=findWeakLetters(stats);
+  const basePool=getNormalTargetPool().filter(function(entry){
+    return !reservedInitials.has(entry.text[0]);
+  });
+  const pool=basePool.length?basePool:getNormalTargetPool();
+  const cooldown=options.cooldown;
+  return pool.filter(function(entry){
+    const wordsSinceSeen=getWordsSinceSeen(entry.text);
+    if(wordsSinceSeen===0)return false;
+    if(wordsSinceSeen<cooldown)return false;
+    if(!options.ignoreFamily&&getFamilyPenalty(entry.family)<0.1)return false;
+    return true;
+  }).map(function(entry){
+    const perf=state.wordPerformance[entry.text];
+    const wordsSinceSeen=getWordsSinceSeen(entry.text);
+    const recentPenalty=getRecentPenalty(wordsSinceSeen);
+    const familyPenalty=options.ignoreFamily?1:getFamilyPenalty(entry.family);
+    const reviewWeight=getReviewWeight(entry);
+    const weaknessWeight=getWeaknessWeight(entry,weakLetters);
+    const masteryWeight=getMasteryWeight(perf);
+    const tierWeight=getTierWeight(entry);
+    const domainWeight=getDomainWeight(entry);
+    const seenCount=state.wordExposureCount[entry.text]||0;
+    const noveltyWeight=seenCount===0?1.45:seenCount<3?1.18:0.96;
+    const zenReviewBoost=state.zen&&reviewWeight>1?1.2:1;
+    const weight=recentPenalty*familyPenalty*reviewWeight*weaknessWeight*masteryWeight*tierWeight*domainWeight*noveltyWeight*zenReviewBoost;
+    let reason='NOVEL';
+    if(reviewWeight>1.5)reason='REVIEW';
+    else if(weaknessWeight>1.2)reason='WEAKNESS';
+    else if(domainWeight>1.1)reason='DOMAIN';
+    else if(tierWeight>1.1)reason='DIFFICULTY';
+    return{
+      text:entry.text,
+      domain:entry.domain,
+      tier:entry.tier,
+      family:entry.family,
+      charCount:entry.charCount,
+      weight:weight,
+      reason:reason,
+      wordsSinceSeen:wordsSinceSeen,
+      exposureCount:seenCount,
+    };
+  }).filter(function(entry){
+    return entry.weight>0;
+  });
+}
+
+function getDueReviewCandidates(reservedInitials){
+  return buildWordCandidates(reservedInitials,{
+    cooldown:Math.max(12,Math.floor(RECENT_WORD_WINDOW*0.5)),
+    ignoreFamily:true,
+  }).filter(function(entry){
+    const review=getReviewItem(entry.text);
+    return review&&review.dueAt<=state.wordEncounterIndex;
+  }).map(function(entry){
+    entry.weight*=state.zen?1.8:1.35;
+    entry.reason='REVIEW';
+    return entry;
+  });
+}
+
+function recordWordExposure(entry){
+  state.wordEncounterIndex++;
+  state.wordExposureCount[entry.text]=(state.wordExposureCount[entry.text]||0)+1;
+  state.wordLastSeenAt[entry.text]=state.wordEncounterIndex;
+  pushBounded(state.recentWords,entry.text,RECENT_WORD_WINDOW);
+  pushBounded(state.recentFamilies,entry.family,RECENT_FAMILY_WINDOW);
+  state.uniqueWordsSeen[entry.text]=true;
+  state.lastSelectionTelemetry={
+    word:entry.text,
+    timesSeen:state.wordExposureCount[entry.text],
+    lastSeenAgo:entry.wordsSinceSeen,
+    selectionWeight:Number(entry.weight.toFixed(3)),
+    reasonSelected:entry.reason,
+    noveltyScore:state.wordEncounterIndex>0?Object.keys(state.uniqueWordsSeen).length/state.wordEncounterIndex:1,
+  };
+}
+
+function selectWord(reservedInitials){
+  const dueReviews=getDueReviewCandidates(reservedInitials);
+  if(dueReviews.length&&(state.zen||Math.random()<0.18)){
+    const reviewChoice=chooseByWeight(dueReviews);
+    if(reviewChoice){
+      recordWordExposure(reviewChoice);
+      return reviewChoice;
+    }
+  }
+  const stages=[
+    {cooldown:RECENT_WORD_WINDOW,ignoreFamily:false},
+    {cooldown:Math.max(10,Math.floor(RECENT_WORD_WINDOW*0.6)),ignoreFamily:true},
+    {cooldown:4,ignoreFamily:true},
+  ];
+  for(const stage of stages){
+    const candidates=buildWordCandidates(reservedInitials,stage);
+    if(candidates.length){
+      const choice=chooseByWeight(candidates);
+      if(choice){
+        recordWordExposure(choice);
+        return choice;
+      }
+    }
+  }
+  const fallback=leastRecentFallback(buildWordCandidates(reservedInitials,{cooldown:0,ignoreFamily:true}));
+  if(fallback){
+    fallback.reason='FALLBACK';
+    recordWordExposure(fallback);
+    return fallback;
+  }
+  return null;
+}
+
+function getReviewDelay(text){
+  if(typeof text!=='string'||!text.length)return REVIEW_DELAY_MIN;
+  let hash=0;
+  for(let i=0;i<text.length;i++)hash=(hash*31+text.charCodeAt(i))%9973;
+  return REVIEW_DELAY_MIN+(hash%(REVIEW_DELAY_MAX-REVIEW_DELAY_MIN+1));
+}
+
+function scheduleReview(entry,failures){
+  const text=entry&&typeof entry.text==='string'&&entry.text.length?entry.text:
+    (entry&&typeof entry.word==='string'&&entry.word.length?entry.word:'');
+  if(!text)return;
+  const domain=entry&&entry.domain?entry.domain:inferDomain(text);
+  const dueAt=state.wordEncounterIndex+getReviewDelay(text);
+  const existing=getReviewItem(text);
+  if(existing){
+    existing.dueAt=Math.max(existing.dueAt,dueAt);
+    existing.failures=Math.max(existing.failures,failures);
+    existing.priority=Math.min(4,(existing.priority||1)+0.35);
+    return;
+  }
+  state.reviewQueue.push({
+    text:text,
+    family:entry&&entry.family?entry.family:inferFamily(text),
+    domain:domain,
+    tier:entry&&entry.tier?entry.tier:inferTier(text,domain),
+    dueAt:dueAt,
+    failures:failures,
+    priority:1+Math.min(failures*0.25,1),
+  });
+}
+
+function resolveReview(text,succeeded){
+  for(let i=state.reviewQueue.length-1;i>=0;i--){
+    if(state.reviewQueue[i].text!==text)continue;
+    if(succeeded)state.reviewQueue.splice(i,1);
+    else{
+      state.reviewQueue[i].dueAt=state.wordEncounterIndex+getReviewDelay(text);
+      state.reviewQueue[i].failures++;
+      state.reviewQueue[i].priority=Math.min(4,(state.reviewQueue[i].priority||1)+0.4);
+    }
+    return;
+  }
+}
+
+function noteWordOutcome(enemy,completed){
+  const text=enemy&&typeof enemy.word==='string'?enemy.word:'';
+  if(!text)return;
+  const perf=state.wordPerformance[text]||{attempts:0,errors:0,avgLatency:0,lastSeen:0,exposureCount:0};
+  const elapsed=Math.max(0,getRunElapsedMs()-(enemy.spawnTimeMs||0));
+  const errors=Math.max(0,state.errors-(enemy.errorStart||0));
+  const chars=Math.max(1,text.replace(/ /g,'').length);
+  const avgLatency=elapsed/chars;
+  perf.attempts++;
+  perf.errors+=errors+(completed?0:1);
+  perf.avgLatency=perf.avgLatency===0?avgLatency:(perf.avgLatency*0.7+avgLatency*0.3);
+  perf.lastSeen=state.wordEncounterIndex;
+  perf.exposureCount=state.wordExposureCount[text]||perf.exposureCount||0;
+  perf.completed=(perf.completed||0)+(completed?1:0);
+  perf.missed=(perf.missed||0)+(completed?0:1);
+  state.wordPerformance[text]=perf;
+  if(completed&&errors===0)resolveReview(text,true);
+  else scheduleReview(enemy,Math.max(1,errors+(completed?0:1)));
+}
+
+function shuffleArray(items){
+  const copy=items.slice();
+  for(let i=copy.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    const tmp=copy[i];
+    copy[i]=copy[j];
+    copy[j]=tmp;
+  }
+  return copy;
+}
+
+function getBossPool(){
+  const domain=state.selectedDomain||'mixed';
+  const library=BOSS_LIBRARY[domain]&&BOSS_LIBRARY[domain].length?BOSS_LIBRARY[domain]:BOSS_LIBRARY.mixed;
+  const maxTier=getBossTier();
+  return library.filter(function(entry){
+    return entry.tier<=maxTier;
+  });
+}
+
+function refillBossDeck(pool){
+  const shuffled=shuffleArray(pool);
+  if(shuffled.length>1&&state.bossDeckPrevious&&shuffled[shuffled.length-1].text===state.bossDeckPrevious){
+    const swapIndex=0;
+    const tmp=shuffled[swapIndex];
+    shuffled[swapIndex]=shuffled[shuffled.length-1];
+    shuffled[shuffled.length-1]=tmp;
+  }
+  state.bossDeck=shuffled;
+  state.bossDeckKey=(state.selectedDomain||'mixed')+':'+getBossTier();
+}
+
+function drawBossEntry(reservedInitials){
+  const pool=getBossPool().filter(function(entry){
+    return !reservedInitials.has(entry.text[0]);
+  });
+  const eligible=pool.length?pool:getBossPool();
+  if(!eligible.length)return null;
+  const deckKey=(state.selectedDomain||'mixed')+':'+getBossTier();
+  const deckHasEligible=state.bossDeck.some(function(entry){
+    return eligible.some(function(candidate){return candidate.text===entry.text});
+  });
+  if(!state.bossDeck.length||state.bossDeckKey!==deckKey||!deckHasEligible){
+    refillBossDeck(eligible);
+  }
+  let entry=state.bossDeck.pop()||null;
+  if(entry&&reservedInitials.has(entry.text[0])){
+    refillBossDeck(eligible);
+    entry=state.bossDeck.pop()||leastRecentFallback(eligible.map(function(item){
+      return {text:item.text};
+    }));
+    if(entry&&entry.text){
+      entry=eligible.find(function(candidate){return candidate.text===entry.text})||null;
+    }
+  }
+  if(!entry)return null;
+  state.bossEncounterIndex++;
+  pushBounded(state.recentBosses,entry.text,RECENT_BOSS_WINDOW);
+  state.bossDeckPrevious=entry.text;
+  state.lastBossTelemetry={
+    bossDeckRemaining:state.bossDeck.length,
+    bossTier:entry.tier,
+    bossDomain:entry.domain,
+    previousBoss:state.recentBosses.length>1?state.recentBosses[state.recentBosses.length-2]:null,
+  };
+  return entry;
+}
+
+function spawnEnemy(){
+  const reservedInitials=getReservedInitials();
+  const entry=selectWord(reservedInitials);
+  if(!entry)return;
+  const word=entry.text;
+  const si=Math.floor(Math.random()*SHAPE_LIST.length);
+  const sz=14+word.length*1.3;
+  const margin=sz+40;
+  enemies.push({
+    x:Math.random()*(W-margin*2)+margin,y:-sz-20,
+    word,typed:0,shape:SHAPE_LIST[si],color:SHAPE_COLORS[si],
+    size:sz,speed:getDescentSpeed(),targeted:false,
+    rot:0,seed:Math.random()*999,isBoss:false,
+    speedMul:1,
+    domain:entry.domain,tier:entry.tier,family:entry.family,
+    spawnTimeMs:getRunElapsedMs(),errorStart:state.errors,correctStart:state.correctKeys,
+  });
+}
+
+function spawnBoss(){
+  if(screen!=='playing'&&screen!=='zen')return;
+  if(state.bossActive)return;
+  const reservedInitials=getReservedInitials();
+  const entry=drawBossEntry(reservedInitials);
+  if(!entry)return;
+  enemies.push({
+    x:W/2,y:-60,word:entry.text,typed:0,shape:'hex',color:MAGENTA,
+    size:50,speed:getDescentSpeed()*0.35,targeted:false,
+    rot:0,seed:Math.random()*999,isBoss:true,
+    speedMul:getDifficultyPreset().bossSpeed,
+    domain:entry.domain,tier:entry.tier,family:entry.family,
+    spawnTimeMs:getRunElapsedMs(),errorStart:state.errors,correctStart:state.correctKeys,
+  });
+  state.bossActive=true;
+  document.getElementById('hudBoss').style.display='block';
+  state.bossTimeoutId=null;
+}
+
+function scheduleBossSpawn(){
+  if(state.bossActive||state.bossTimeoutId)return;
+  state.bossTimeoutId=setTimeout(function(){
+    state.bossTimeoutId=null;
+    if(screen==='playing'||screen==='zen')spawnBoss();
+  },1500);
+}
+
+function updateEnemies(dt){
+  for(let i=enemies.length-1;i>=0;i--){
+    const e=enemies[i];
+    e.speed=e.isBoss?getDescentSpeed()*e.speedMul:getDescentSpeed()*e.speedMul;
+    e.y+=e.speed*dt;e.rot+=dt*0.5;
+    // Reached bottom
+    if(e.y>H-PLAYER_Y_OFF){
+      if(!state.zen){
+        state.shields--;triggerShake(18);state.redFlash=0.4;
+        playError();
+        if(e===state.currentTarget)state.currentTarget=null;
+        if(e.isBoss)state.bossActive=false;
+        noteWordOutcome(e,false);
+        enemies.splice(i,1);
+        updateShieldDisplay();
+        if(state.shields<=0){gameOver();return}
+      }else{
+        if(e===state.currentTarget)state.currentTarget=null;
+        noteWordOutcome(e,false);
+        enemies.splice(i,1);
+      }
+    }
+  }
+}
+
+function getShapeSides(s){return s==='tri'?3:s==='dia'?4:s==='hex'?6:7}
+
+function drawEnemies(){
+  for(const e of enemies){
+    ctx.save();ctx.translate(e.x,e.y);ctx.rotate(e.rot);
+    const sides=getShapeSides(e.shape);
+    const col=e.targeted?WHITE:e.color;
+    ctx.shadowColor=e.targeted?WHITE:e.color;
+    ctx.shadowBlur=e.targeted?28:14;
+    ctx.strokeStyle=col;ctx.lineWidth=e.targeted?2.5:1.8;
+    ctx.fillStyle=(e.targeted?WHITE:e.color)+'1a';
+    ctx.beginPath();
+    for(let j=0;j<sides;j++){
+      const a=-Math.PI/2+j*2*Math.PI/sides;
+      let r=e.size;
+      if(e.shape==='ast')r=e.size*(0.7+0.3*Math.sin(e.seed+j*2.7));
+      const px=r*Math.cos(a),py=r*Math.sin(a);
+      j===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+    }
+    ctx.closePath();ctx.fill();ctx.stroke();
+    // Inner detail
+    if(e.isBoss){
+      ctx.strokeStyle=col+'44';ctx.lineWidth=1;
+      ctx.beginPath();
+      for(let j=0;j<sides;j++){
+        const a=-Math.PI/2+j*2*Math.PI/sides;
+        const r=e.size*0.6;
+        j===0?ctx.moveTo(r*Math.cos(a),r*Math.sin(a)):ctx.lineTo(r*Math.cos(a),r*Math.sin(a));
+      }
+      ctx.closePath();ctx.stroke();
+    }
+    ctx.restore();
+
+    // Word label
+    const fs=e.isBoss?13:15;
+    ctx.font='bold '+fs+'px monospace';
+    ctx.textBaseline='top';
+    const wordY=e.y+e.size+8;
+    if(e.typed>0){
+      const typed=e.word.substring(0,e.typed);
+      const rem=e.word.substring(e.typed);
+      const fw=ctx.measureText(e.word).width;
+      const tw=ctx.measureText(typed).width;
+      const sx=e.x-fw/2;
+      ctx.textAlign='left';
+      ctx.shadowColor=CYAN;ctx.shadowBlur=10;ctx.fillStyle=CYAN;
+      ctx.fillText(typed,sx,wordY);
+      ctx.shadowBlur=0;ctx.fillStyle='#cccccc';
+      ctx.fillText(rem,sx+tw,wordY);
+    }else{
+      ctx.textAlign='center';ctx.shadowBlur=0;
+      ctx.fillStyle=e.targeted?WHITE:'#999999';
+      ctx.fillText(e.word,e.x,wordY);
+    }
+    ctx.textAlign='start';ctx.textBaseline='alphabetic';
+  }
+}
+
+/* ===== LASER SYSTEM ===== */
+function fireLaser(x1,y1,x2,y2,color){
+  lasers.push({x1,y1,x2,y2,color,life:0.12,ml:0.12,
+    progress:0,speed:2500});
+}
+
+function updateLasers(dt){
+  for(let i=lasers.length-1;i>=0;i--){
+    const l=lasers[i];
+    l.life-=dt;l.progress=Math.min(1,l.progress+l.speed*dt/Math.hypot(l.x2-l.x1,l.y2-l.y1));
+    if(l.life<=0)lasers.splice(i,1);
+  }
+}
+
+function drawLasers(){
+  ctx.save();ctx.globalCompositeOperation='lighter';
+  for(const l of lasers){
+    const al=Math.max(0,l.life/l.ml);
+    ctx.globalAlpha=al;ctx.strokeStyle=l.color;
+    ctx.shadowColor=l.color;ctx.shadowBlur=12;ctx.lineWidth=2;
+    const ex=l.x1+(l.x2-l.x1)*l.progress;
+    const ey=l.y1+(l.y2-l.y1)*l.progress;
+    ctx.beginPath();ctx.moveTo(l.x1,l.y1);ctx.lineTo(ex,ey);ctx.stroke();
+    // Bright core
+    ctx.lineWidth=1;ctx.strokeStyle='#ffffff';
+    ctx.beginPath();ctx.moveTo(l.x1,l.y1);ctx.lineTo(ex,ey);ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/* ===== TYPING / TARGETING ===== */
+function handleTyping(key){
+  if(screen!=='playing'&&screen!=='zen')return;
+  const k=key.toLowerCase();
+  // Only allow a-z and space
+  if(k.length!==1)return;
+  const isAlpha=(k>='a'&&k<='z');
+  const isSpace=k===' ';
+  if(!isAlpha&&!isSpace)return;
+
+  state.totalKeys++;
+
+  if(state.currentTarget){
+    const expected=state.currentTarget.word[state.currentTarget.typed];
+    if(k===expected){
+      typeCorrect(state.currentTarget,k);
+    }else{
+      typeWrong(k,expected);
+    }
+  }else{
+    const target=findTarget(k);
+    if(target){
+      state.currentTarget=target;
+      target.targeted=true;
+      typeCorrect(target,k);
+    }else{
+      typeStray(k);
+    }
+  }
+}
+
+function findTarget(key){
+  let best=null,bestD=Infinity;
+  for(const e of enemies){
+    if(e.typed<e.word.length&&e.word[e.typed]===key){
+      const d=Math.hypot(e.x-player.x,e.y-player.y);
+      if(d<bestD){bestD=d;best=e}
+    }
+  }
+  return best;
+}
+
+function typeCorrect(enemy,key){
+  state.correctKeys++;
+  enemy.typed++;
+  updateLetterStat(key,true);
+  // Keystroke timing
+  const now=performance.now();
+  updateLiveWpm(now);
+  if(state.lastKeyTime){
+    state.keyIntervals.push(now-state.lastKeyTime);
+    if(state.keyIntervals.length>50)state.keyIntervals.shift();
+  }
+  state.lastKeyTime=now;
+  // Laser
+  const pan=(enemy.x/W)*2-1;
+  fireLaser(player.x,player.y-15,enemy.x,enemy.y,CYAN);
+  playClick(pan);
+  // Hit spark
+  for(let i=0;i<4;i++){
+    const a=Math.random()*Math.PI*2,sp=Math.random()*80+30;
+    spawnP(enemy.x,enemy.y,Math.cos(a)*sp,Math.sin(a)*sp,CYAN,0.15,2);
+  }
+  // Check complete
+  if(enemy.typed>=enemy.word.length)completeWord(enemy);
+  // Update boss bar
+  if(enemy.isBoss){
+    const pct=(enemy.typed/enemy.word.length)*100;
+    document.getElementById('bossBarFill').style.width=pct+'%';
+  }
+}
+
+function typeStray(key){
+  state.errors++;
+  updateLetterStat(key,false);
+  state.redFlash=Math.max(state.redFlash,0.08);
+}
+
+function typeWrong(key,expected){
+  state.errors++;
+  updateLetterStat(expected,false);
+  // Reset flow
+  state.consPerf=0;state.flowMult=1;
+  updateMusicLayers();
+  // Slow motion
+  state.timeScale=0.5;state.slowTimer=2;
+  state.redFlash=0.3;
+  document.getElementById('recoveryHint').style.display='block';
+  playError();
+}
+
+function completeWord(enemy){
+  noteWordOutcome(enemy,true);
+  const idx=enemies.indexOf(enemy);
+  if(idx>=0)enemies.splice(idx,1);
+  state.currentTarget=null;
+  state.wordsDone++;state.killed++;
+  state.consPerf++;
+  // Flow multiplier
+  if(state.consPerf>=20)state.flowMult=5;
+  else if(state.consPerf>=10)state.flowMult=3;
+  else if(state.consPerf>=5)state.flowMult=2;
+  else state.flowMult=1;
+  // Score
+  const pts=enemy.word.replace(/ /g,'').length*10*state.flowMult;
+  state.score+=pts;
+  if(enemy.isBoss){
+    state.score+=500*state.flowMult;
+    state.bossActive=false;
+    resetBossUI();
+    state.bossBeam=0.5;
+    spawnBossExplosion(enemy.x,enemy.y);
+    triggerShake(25);playBeam();
+  }else{
+    triggerShake(4+state.flowMult);
+  }
+  if(state.consPerf>state.longestStreak)state.longestStreak=state.consPerf;
+  // Effects
+  const pan=(enemy.x/W)*2-1;
+  spawnExplosion(enemy.x,enemy.y,enemy.color,enemy.word);
+  playThrum();playExplosion(pan);
+  updateMusicLayers();
+  recordWPM();
+  // Boss check
+  if(state.killed>0&&state.killed%BOSS_EVERY===0&&!state.bossActive){
+    scheduleBossSpawn();
+  }
+}
+
+/* ===== DIFFICULTY ENGINE ===== */
+function calcWPM(){
+  return Math.round(state.liveWpm||0);
+}
+
+function calcAcc(){
+  return state.totalKeys>0?Math.round(state.correctKeys/state.totalKeys*100):100;
+}
+
+function recordWPM(){
+  const w=calcWPM();
+  state.wpmHist.push(w);
+  if(w>state.peakWpm)state.peakWpm=w;
+}
+
+function getDescentSpeed(){
+  const preset=getDifficultyPreset();
+  return preset.descentBase*(0.9+state.diffFactor*0.55);
+}
+
+function getSpawnInterval(){
+  const preset=getDifficultyPreset();
+  return Math.max(preset.spawnMin,preset.spawnBase/(0.82+state.diffFactor*0.95));
+}
+
+function updateDifficulty(){
+  const preset=getDifficultyPreset();
+  const elapsed=getRunElapsedSec();
+  const progress=Math.min(1.65,0.9+(elapsed/45)*preset.progression);
+  const wpm=Math.max(0,calcWPM());
+  const acc=state.totalKeys>0?state.correctKeys/state.totalKeys:1;
+  const adaptive=Math.max(-0.16,Math.min(preset.adapt,((wpm-48)/170)+(acc-0.95)*0.75));
+  state.diffFactor=Math.max(0.8,Math.min(2.95,progress+adaptive));
+}
+
+/* ===== SCREEN EFFECTS ===== */
+function triggerShake(intensity){state.shake.intensity=intensity}
+
+function updateShake(dt){
+  if(state.shake.intensity>0){
+    state.shake.x=(Math.random()-0.5)*state.shake.intensity;
+    state.shake.y=(Math.random()-0.5)*state.shake.intensity;
+    state.shake.intensity*=Math.pow(0.05,dt);
+    if(state.shake.intensity<0.5)state.shake.intensity=0;
+  }else{state.shake.x=0;state.shake.y=0}
+}
+
+function drawVignette(strength){
+  const grd=ctx.createRadialGradient(W/2,H/2,H*0.3,W/2,H/2,H*0.9);
+  grd.addColorStop(0,'transparent');
+  grd.addColorStop(1,'rgba(20,40,80,'+strength+')');
+  ctx.fillStyle=grd;ctx.fillRect(0,0,W,H);
+}
+
+function drawChromaticAberration(){
+  if(state.flowMult<3)return;
+  const offset=state.flowMult>=5?3:1.5;
+  const alpha=state.flowMult>=5?0.06:0.03;
+  // Simple: re-draw some particles offset in R/B channels
+  ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=alpha;
+  ctx.translate(-offset,0);ctx.fillStyle='#ff0000';ctx.fillRect(0,0,W,H);
+  ctx.translate(offset*2,0);ctx.fillStyle='#0000ff';ctx.fillRect(0,0,W,H);
+  ctx.restore();
+}
+
+function drawRedFlash(){
+  if(state.redFlash>0){
+    ctx.save();ctx.globalAlpha=state.redFlash;
+    ctx.fillStyle='rgba(255,0,0,0.15)';ctx.fillRect(0,0,W,H);
+    ctx.restore();
+  }
+}
+
+function drawBossBeam(dt){
+  if(state.bossBeam>0){
+    ctx.save();ctx.globalCompositeOperation='lighter';
+    const al=state.bossBeam/0.5;
+    // Full-width beam
+    ctx.fillStyle='rgba(255,0,255,'+al*0.12+')';ctx.fillRect(0,0,W,H);
+    // Beam line
+    const bw=40*al;
+    ctx.shadowColor=MAGENTA;ctx.shadowBlur=60;
+    ctx.fillStyle='rgba(255,255,255,'+al*0.6+')';
+    ctx.fillRect(player.x-bw/2,0,bw,player.y);
+    ctx.restore();
+    state.bossBeam-=dt;
+  }
+}
+
+/* ===== HUD ===== */
+function updateHUD(force){
+  if(!force){
+    const now=performance.now();
+    if(now-state.lastHudPaint<HUD_REFRESH_MS)return;
+    state.lastHudPaint=now;
+  }else{
+    state.lastHudPaint=performance.now();
+  }
+  document.getElementById('hScore').textContent=state.score.toLocaleString();
+  document.getElementById('hWpm').textContent=calcWPM();
+  document.getElementById('hAcc').textContent=calcAcc()+'%';
+  const mEl=document.getElementById('hMult');
+  mEl.innerHTML='&times;'+state.flowMult;
+  mEl.className='hud-value hud-mult'+(state.flowMult>=5?' x5':state.flowMult>=3?' x3':state.flowMult>=2?' x2':'');
+  updateShieldDisplay();
+}
+
+function updateShieldDisplay(){
+  const el=document.getElementById('hudShields');
+  let h='';
+  for(let i=0;i<SHIELD_MAX;i++){
+    h+='<span class="'+(i<state.shields?'shield-on':'shield-off')+'">\u2B21</span>';
+  }
+  el.innerHTML=h;
+}
+
+/* ===== SCREEN MANAGEMENT ===== */
+function getNavIdsForScreen(name){
+  switch(name){
+    case'menu': return ['btnStart','btnZen','btnAnalytics','btnAbout'];
+    case'paused': return ['btnResume','btnQuit'];
+    case'gameover': return ['btnRetry','btnGoMenu'];
+    case'analytics': return ['btnAnaReset','btnAnaBack'];
+    case'about': return ['btnAboutBack'];
+    default: return [];
+  }
+}
+
+function clearNavActive(){
+  for(const id of NAV_BUTTON_IDS){
+    const el=document.getElementById(id);
+    if(el)el.classList.remove('nav-active');
+  }
+}
+
+function syncKeyboardFocus(name){
+  const ids=getNavIdsForScreen(name);
+  clearNavActive();
+  if(!ids.length)return;
+  const current=Math.max(0,Math.min((navState[name]||0),ids.length-1));
+  navState[name]=current;
+  const el=document.getElementById(ids[current]);
+  if(!el)return;
+  el.classList.add('nav-active');
+  try{el.focus()}catch(e){}
+}
+
+function moveScreenFocus(delta){
+  const ids=getNavIdsForScreen(screen);
+  if(!ids.length)return false;
+  const current=navState[screen]||0;
+  navState[screen]=(current+delta+ids.length)%ids.length;
+  syncKeyboardFocus(screen);
+  return true;
+}
+
+function activateScreenFocus(){
+  const ids=getNavIdsForScreen(screen);
+  if(!ids.length)return false;
+  const el=document.getElementById(ids[navState[screen]||0]);
+  if(!el)return false;
+  el.click();
+  return true;
+}
+
+function showScreen(name){
+  screen=name;
+  const ids=['menuScreen','pauseOv','goScreen','analyticsScreen','aboutScreen'];
+  ids.forEach(id=>{
+    const el=document.getElementById(id);
+    el.classList.toggle('show',false);
+  });
+  document.getElementById('hud').classList.toggle('show',false);
+
+  switch(name){
+    case'menu':
+      document.getElementById('menuScreen').classList.add('show');
+      updateMenuStats();break;
+    case'playing':case'zen':
+      document.getElementById('hud').classList.add('show');
+      maybeShowHyperHint();
+      break;
+    case'paused':
+      document.getElementById('pauseOv').classList.add('show');
+      updatePauseDifficultyUI();
+      break;
+    case'gameover':
+      document.getElementById('goScreen').classList.add('show');
+      renderGameOver();break;
+    case'analytics':
+      document.getElementById('analyticsScreen').classList.add('show');
+      renderAnalytics();break;
+    case'about':
+      document.getElementById('aboutScreen').classList.add('show');break;
+  }
+  syncKeyboardFocus(name);
+}
+
+function updateMenuStats(){
+  const best=loadBest();
+  const rating=loadRating();
+  const preset=getDifficultyPreset(loadDifficulty());
+  const el=document.getElementById('menuStats');
+  el.innerHTML='BEST SCORE: <span>'+best.toLocaleString()+'</span><br>AETHER RATING: <span>'+rating+'</span><br>DIFFICULTY: <span>'+preset.label+'</span>';
+}
+
+function startGame(zen){
+  initAudio();
+  clearSessionState();
+  state=freshState(zen);
+  state.hyperdriveReady=canUseHyperdrive();
+  initPlayer();musicLayer=1;
+  if(padNodes)padNodes.pg.gain.value=0;
+  showScreen(zen?'zen':'playing');
+  resetBossUI();
+  updatePauseDifficultyUI();
+  updateHUD(true);
+}
+
+function pauseGame(){
+  if(screen==='playing'||screen==='zen')showScreen('paused');
+}
+
+function resumeGame(){
+  showScreen(state.zen?'zen':'playing');
+  lastTS=performance.now();
+}
+
+function quitToMenu(){
+  clearSessionState();
+  if(state.zen&&state.wordsDone>0){
+    state._ratingOld=loadRating();state._ratingNew=loadRating();state._ratingDelta=0;
+    showScreen('gameover');return;
+  }
+  showScreen('menu');
+}
+
+function gameOver(){
+  clearSessionState();
+  // Update best
+  if(state.score>loadBest())saveBest(state.score);
+  // Update rating
+  const wpm=calcWPM();
+  const acc=calcAcc();
+  const oldR=loadRating();
+  const perf=Math.max(1,wpm)*(acc/100);
+  const expected=oldR/80;
+  const k=24;
+  const delta=Math.round(k*(perf/Math.max(expected,1)-1));
+  const newR=Math.max(100,oldR+delta);
+  saveRating(newR);
+  state._ratingOld=oldR;state._ratingNew=newR;state._ratingDelta=newR-oldR;
+  showScreen('gameover');
+}
+
+/* ===== GAME OVER RENDERING ===== */
+function renderGameOver(){
+  const el=document.getElementById('goStats');
+  const wpm=calcWPM();const acc=calcAcc();
+  document.getElementById('goTitle').textContent=state.zen?'ZEN SESSION COMPLETE':'RUN ENDED';
+  el.innerHTML=
+    '<div><div class="go-stat-label">FINAL SCORE</div><div class="go-stat-value">'+state.score.toLocaleString()+'</div></div>'+
+    '<div><div class="go-stat-label">PEAK WPM</div><div class="go-stat-value">'+state.peakWpm+'</div></div>'+
+    '<div><div class="go-stat-label">ACCURACY</div><div class="go-stat-value">'+acc+'%</div></div>'+
+    '<div><div class="go-stat-label">LONGEST STREAK</div><div class="go-stat-value">'+state.longestStreak+'</div></div>'+
+    '<div><div class="go-stat-label">WORDS TYPED</div><div class="go-stat-value">'+state.wordsDone+'</div></div>'+
+    '<div><div class="go-stat-label">ENEMIES</div><div class="go-stat-value">'+state.killed+'</div></div>';
+
+  // Rating
+  const rEl=document.getElementById('goRating');
+  if(state._ratingDelta!==undefined){
+    const dc=state._ratingDelta>=0?'delta-pos':'delta-neg';
+    const sign=state._ratingDelta>=0?'+':'';
+    rEl.innerHTML='AETHER RATING: '+state._ratingNew+' <span class="'+dc+'">('+sign+state._ratingDelta+')</span>';
+  }
+
+  // Sparkline
+  drawSparkline();
+
+  // Heatmap
+  renderHeatmap('goHeatmap','goWeak');
+}
+
+function drawSparkline(){
+  const c=document.getElementById('sparkline');
+  const cx=c.getContext('2d');
+  const w=c.width,h=c.height;
+  cx.clearRect(0,0,w,h);
+  if(state.wpmHist.length<2)return;
+  const max=Math.max(...state.wpmHist,1);
+  cx.strokeStyle=CYAN;cx.lineWidth=2;
+  cx.shadowColor=CYAN;cx.shadowBlur=4;
+  cx.beginPath();
+  for(let i=0;i<state.wpmHist.length;i++){
+    const x=(i/(state.wpmHist.length-1))*w;
+    const y=h-(state.wpmHist[i]/max)*(h-10)-5;
+    i===0?cx.moveTo(x,y):cx.lineTo(x,y);
+  }
+  cx.stroke();
+}
+
+function renderHeatmap(containerId,weakId){
+  const container=document.getElementById(containerId);
+  container.innerHTML='';
+  const stats=loadLetterStats();
+  const rows=['qwertyuiop','asdfghjkl','zxcvbnm'];
+  // Find max error rate
+  let maxR=0;
+  for(let i=97;i<=122;i++){
+    const l=String.fromCharCode(i);
+    if(stats[l]&&stats[l].total>0){
+      const r=stats[l].errors/stats[l].total;
+      if(r>maxR)maxR=r;
+    }
+  }
+  if(maxR===0)maxR=0.01;
+
+  const weakArr=[];
+  for(const row of rows){
+    const rd=document.createElement('div');rd.className='kb-row';
+    for(const ch of row){
+      const s=stats[ch];
+      let er=0;if(s&&s.total>0)er=s.errors/s.total;
+      const t=Math.min(1,er/maxR);
+      // Cyan->Magenta/Red
+      const r=Math.round(t*255);
+      const g=Math.round((1-t)*255);
+      const b=255;
+      const col='rgb('+r+','+g+','+b+')';
+      const kd=document.createElement('div');kd.className='kb-key';
+      kd.style.borderColor=col;kd.style.color=col;
+      kd.style.background='rgba('+r+','+g+','+b+',0.08)';
+      kd.textContent=ch.toUpperCase();
+      if(er>0)kd.title=ch.toUpperCase()+': '+Math.round(er*100)+'% error ('+s.total+' presses)';
+      rd.appendChild(kd);
+      if(er>0.1&&s&&s.total>=3)weakArr.push({l:ch.toUpperCase(),er:Math.round(er*100)});
+    }
+    container.appendChild(rd);
+  }
+
+  const wEl=document.getElementById(weakId);
+  weakArr.sort((a,b)=>b.er-a.er);
+  if(weakArr.length>0){
+    wEl.textContent='WEAKEST: '+weakArr.slice(0,5).map(w=>w.l+' ('+w.er+'%)').join(', ');
+  }else{
+    wEl.textContent='';
+  }
+}
+
+function renderAnalytics(){
+  const stats=loadLetterStats();
+  const rating=loadRating();
+  const best=loadBest();
+  let totalK=0,totalE=0;
+  for(const l of Object.values(stats)){totalK+=l.total;totalE+=l.errors}
+  const acc=totalK>0?Math.round((1-totalE/totalK)*100):100;
+  const el=document.getElementById('anaStats');
+  el.innerHTML=
+    '<div><div class="go-stat-label">RATING</div><div class="go-stat-value">'+rating+'</div></div>'+
+    '<div><div class="go-stat-label">BEST SCORE</div><div class="go-stat-value">'+best.toLocaleString()+'</div></div>'+
+    '<div><div class="go-stat-label">LIFETIME KEYS</div><div class="go-stat-value">'+totalK.toLocaleString()+'</div></div>'+
+    '<div><div class="go-stat-label">LIFETIME ACC</div><div class="go-stat-value">'+acc+'%</div></div>';
+  renderHeatmap('anaHeatmap','anaWeak');
+}
+
+/* ===== MAIN RENDER ===== */
+function render(dt){
+  ctx.save();
+  // Screen shake
+  ctx.translate(state.shake.x,state.shake.y);
+  // Clear
+  ctx.fillStyle=BG;ctx.fillRect(-10,-10,W+20,H+20);
+  // Background pulse at high combo
+  if(state.flowMult>=3){
+    const pAlpha=state.flowMult>=5?0.04:0.02;
+    ctx.fillStyle='rgba(0,255,255,'+pAlpha+')';ctx.fillRect(0,0,W,H);
+  }
+  // Stars
+  drawStars();
+  // Enemies
+  drawEnemies();
+  // Lasers
+  drawLasers();
+  // Particles
+  drawParticles();
+  // Player
+  drawPlayer();
+  // Boss beam
+  drawBossBeam(dt||0);
+  // Effects
+  drawRedFlash();
+  if(state.slowTimer>0)drawVignette(0.25);
+  drawChromaticAberration();
+  ctx.restore();
+}
+
+/* ===== GAME LOOP ===== */
+function loop(ts){
+  rafId=requestAnimationFrame(loop);
+  if(!lastTS)lastTS=ts;
+  const rawDt=Math.min((ts-lastTS)/1000,0.05);
+  lastTS=ts;
+
+  // Always animate stars
+  updateStars(rawDt);
+
+  if(screen==='playing'||screen==='zen'){
+    // Slow motion
+    if(state.slowTimer>0){
+      state.slowTimer-=rawDt;
+      if(state.slowTimer<=0){
+        state.timeScale=1;
+        document.getElementById('recoveryHint').style.display='none';
+      }
+    }
+    const dt=rawDt*state.timeScale;
+
+    updatePlayer(dt);
+    updateEnemies(dt);
+    updateLasers(dt);
+    updateParticles(dt);
+    updateShake(dt);
+    updateDifficulty();
+    maybeShowHyperHint();
+
+    // Red flash decay
+    if(state.redFlash>0)state.redFlash-=rawDt*2;
+
+    // Spawning
+    state.lastSpawn+=dt;
+    if(state.lastSpawn>=getSpawnInterval()&&!state.bossActive){
+      spawnEnemy();state.lastSpawn=0;
+    }
+
+    render(dt);
+    updateHUD();
+  }else{
+    // Background-only render for menu/pause/gameover
+    ctx.fillStyle=BG;ctx.fillRect(0,0,W,H);
+    drawStars();
+  }
+}
+
+/* ===== EVENT HANDLERS ===== */
+document.addEventListener('keydown',function(e){
+  if(e.key==='F8'||((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='m')){
+    e.preventDefault();
+    toggleMute();
+    return;
+  }
+  if((screen==='playing'||screen==='zen')&&e.key==='Tab'){
+    e.preventDefault();
+    triggerHyperdrive();
+    return;
+  }
+  // Escape
+  if(e.key==='Escape'){
+    if(screen==='playing'||screen==='zen'){pauseGame();return}
+    if(screen==='paused'){resumeGame();return}
+    if(screen==='gameover'||screen==='analytics'||screen==='about'){showScreen('menu');return}
+    return;
+  }
+  if(screen==='menu'||screen==='paused'||screen==='gameover'||screen==='analytics'||screen==='about'){
+    if(e.key==='ArrowUp'){e.preventDefault();moveScreenFocus(-1);return}
+    if(e.key==='ArrowDown'){e.preventDefault();moveScreenFocus(1);return}
+    if(e.key==='Enter'||e.key===' '){
+      e.preventDefault();
+      activateScreenFocus();
+      return;
+    }
+  }
+  if(screen==='paused'){
+    if(e.key==='ArrowLeft'){e.preventDefault();shiftDifficulty(-1);return}
+    if(e.key==='ArrowRight'){e.preventDefault();shiftDifficulty(1);return}
+  }
+  // Menu keyboard nav
+  if(screen==='menu'){
+    if(e.key==='1'){startGame(false);e.preventDefault();return}
+    if(e.key==='2'){startGame(true);e.preventDefault();return}
+    if(e.key==='3'){showScreen('analytics');e.preventDefault();return}
+    if(e.key==='4'){showScreen('about');e.preventDefault();return}
+    return;
+  }
+  // Typing during gameplay
+  if(screen==='playing'||screen==='zen'){
+    if(e.key.length===1){
+      e.preventDefault();
+      handleTyping(e.key);
+    }
+    return;
+  }
+  // Game over shortcuts
+  if(screen==='gameover'){
+    return;
+  }
+});
+
+// Button handlers
+document.getElementById('btnStart').addEventListener('click',function(){startGame(false)});
+document.getElementById('btnZen').addEventListener('click',function(){startGame(true)});
+document.getElementById('btnAnalytics').addEventListener('click',function(){showScreen('analytics')});
+document.getElementById('btnAbout').addEventListener('click',function(){showScreen('about')});
+document.getElementById('btnDiffDown').addEventListener('click',function(){shiftDifficulty(-1)});
+document.getElementById('btnDiffUp').addEventListener('click',function(){shiftDifficulty(1)});
+document.getElementById('btnResume').addEventListener('click',resumeGame);
+document.getElementById('btnQuit').addEventListener('click',quitToMenu);
+document.getElementById('btnRetry').addEventListener('click',function(){startGame(state.zen)});
+document.getElementById('btnGoMenu').addEventListener('click',function(){showScreen('menu')});
+document.getElementById('btnAnaBack').addEventListener('click',function(){showScreen('menu')});
+document.getElementById('btnAboutBack').addEventListener('click',function(){showScreen('menu')});
+[
+  ['menu','btnStart'],
+  ['menu','btnZen'],
+  ['menu','btnAnalytics'],
+  ['menu','btnAbout'],
+  ['paused','btnResume'],
+  ['paused','btnQuit'],
+  ['gameover','btnRetry'],
+  ['gameover','btnGoMenu'],
+  ['analytics','btnAnaReset'],
+  ['analytics','btnAnaBack'],
+  ['about','btnAboutBack'],
+].forEach(function(binding,index){
+  const group=getNavIdsForScreen(binding[0]);
+  const element=document.getElementById(binding[1]);
+  if(!element)return;
+  element.addEventListener('focus',function(){
+    navState[binding[0]]=group.indexOf(binding[1]);
+    clearNavActive();
+    element.classList.add('nav-active');
+  });
+  element.addEventListener('mouseenter',function(){
+    navState[binding[0]]=group.indexOf(binding[1]);
+    clearNavActive();
+    element.classList.add('nav-active');
+  });
+});
+// Two-step confirm (native confirm() is unavailable in sandboxed frames)
+let resetArmed=false,resetTimer=null;
+document.getElementById('btnAnaReset').addEventListener('click',function(){
+  const btn=this;
+  if(!resetArmed){
+    resetArmed=true;
+    btn.dataset.label=btn.dataset.label||btn.textContent;
+    btn.textContent='CONFIRM WIPE?';
+    btn.style.color='#ff2d6f';btn.style.borderColor='#ff2d6f';
+    clearTimeout(resetTimer);
+    resetTimer=setTimeout(function(){
+      resetArmed=false;btn.textContent=btn.dataset.label;btn.style.color='';btn.style.borderColor='';
+    },3000);
+    return;
+  }
+  clearTimeout(resetTimer);resetArmed=false;
+  btn.textContent=btn.dataset.label;btn.style.color='';btn.style.borderColor='';
+  removeLS('aether_letterStats');
+  removeLS('aether_best');
+  removeLS('aether_rating');
+  renderAnalytics();
+});
+
+// Auto-pause on blur
+window.addEventListener('blur',function(){
+  if(screen==='playing'||screen==='zen')pauseGame();
+});
+
+// Mobile check
+function checkMobile(){
+  if(window.innerWidth<700){
+    document.getElementById('mobileWarn').style.display='flex';
+  }else{
+    document.getElementById('mobileWarn').style.display='none';
+  }
+}
+window.addEventListener('resize',checkMobile);
+
+/* ===== INIT ===== */
+resize();
+initStars();
+initPlayer();
+checkMobile();
+showScreen('menu');
+lastTS=0;
+rafId=requestAnimationFrame(loop);
+// Pull durable stats from the Tasklet bridge, then refresh the menu numbers.
+hydrateBridge().then(function(){ try{ showScreen('menu'); }catch(e){} });
+
+</script>
+</body>
+</html>
